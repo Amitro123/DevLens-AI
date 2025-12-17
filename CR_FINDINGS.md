@@ -69,3 +69,21 @@
 **Severity:** Low
 **Description:** In `UploadForm.jsx`, the logic for handling Drive uploads relies on checking `if (typeof file === 'string')`. This dual-purpose use of the `file` state variable is fragile.
 **Recommendation:** Use separate state variables for `file` and `driveUrl`, or a discriminated union type structure.
+
+---
+
+## Resolution Status (2025-12-17)
+
+| Issue | Status | Notes |
+|-------|--------|-------|
+| 1.1 Groq Integration | ✅ Resolved | Documentation updated to reflect actual Gemini Flash usage |
+| 1.2 Branding | ✅ Resolved | Changed "DocuFlow AI" → "DevLens AI" in `main.py`, `prompt_loader.py`, `conftest.py` |
+| 2.1 Blocking Operations | ✅ Resolved | Added `run_in_threadpool` wrappers in `routes.py` |
+| 2.2 In-Memory Persistence | ✅ Documented | Added TODO comment (acceptable for MVP) |
+| 3.1 Code Duplication | ⏳ Deferred | Significant refactor - planned for future iteration |
+| 3.2 Unsafe String Interpolation | ✅ Resolved | Replaced with `string.Template.safe_substitute()` |
+| 3.3 Unused Dependencies | ✅ Resolved | Removed `moviepy` from `requirements.txt` |
+| 4.1 Fake Progress Bar | ✅ Documented | Acceptable for MVP - noted in codebase |
+| 4.2 Hardcoded Telemetry | ✅ Resolved | Added "(Mock Data)" label in `DocViewer.jsx` |
+| 4.3 Fragile State Management | ✅ Resolved | Refactored to use `videoFile`, `driveUrl`, `uploadMode` state |
+

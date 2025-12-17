@@ -17,7 +17,10 @@ export default function UploadForm({ session = null, isDevMode = false }) {
     const [selectedMode, setSelectedMode] = useState('general_doc')
     const [projectName, setProjectName] = useState('')
     const [language, setLanguage] = useState('en')
-    const [file, setFile] = useState(null)
+    // CR_FINDINGS 4.3: Use separate state for file and Drive URL instead of overloading 'file'
+    const [videoFile, setVideoFile] = useState(null)     // For file uploads (File object)
+    const [driveUrl, setDriveUrl] = useState('')          // For Drive imports (string URL)
+    const [uploadMode, setUploadMode] = useState('file')  // 'file' | 'drive'
     const [uploading, setUploading] = useState(false)
     const [progress, setProgress] = useState(0)
     const [result, setResult] = useState(null)
@@ -56,7 +59,7 @@ export default function UploadForm({ session = null, isDevMode = false }) {
 
     const onDrop = useCallback((acceptedFiles) => {
         if (acceptedFiles.length > 0) {
-            setFile(acceptedFiles[0])
+            setVideoFile(acceptedFiles[0])
             setError(null)
             setResult(null)
         }
@@ -74,8 +77,10 @@ export default function UploadForm({ session = null, isDevMode = false }) {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        if (!file) {
-            setError('Please select a video file')
+        // Check if we have input based on current mode
+        const hasInput = uploadMode === 'drive' ? driveUrl.trim() : videoFile
+        if (!hasInput) {
+            setError(uploadMode === 'drive' ? 'Please enter a Drive URL' : 'Please select a video file')
             return
         }
 
@@ -102,12 +107,12 @@ export default function UploadForm({ session = null, isDevMode = false }) {
             let data;
 
             // Handle Drive Upload (URL)
-            if (typeof file === 'string') {
+            if (uploadMode === 'drive') {
                 if (!session) {
                     throw new Error("Drive import currently requires an active session context.")
                 }
                 data = await api.uploadFromDrive({
-                    url: file,
+                    url: driveUrl,
                     session_id: session.id
                     // access_token: ... // Implement auth flow later
                 })
@@ -115,7 +120,7 @@ export default function UploadForm({ session = null, isDevMode = false }) {
             // Handle File Upload
             else {
                 const formData = new FormData()
-                formData.append('file', file)
+                formData.append('file', videoFile)
 
                 if (session) {
                     // Session context upload
@@ -143,7 +148,9 @@ export default function UploadForm({ session = null, isDevMode = false }) {
     }
 
     const resetForm = () => {
-        setFile(null)
+        setVideoFile(null)
+        setDriveUrl('')
+        setUploadMode('file')
         setProjectName('')
         setResult(null)
         setError(null)
@@ -151,16 +158,16 @@ export default function UploadForm({ session = null, isDevMode = false }) {
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-6">
             {/* Tab Navigation */}
             <div className="flex border-b border-gray-200 mb-6">
                 <button
                     type="button"
                     onClick={() => {
-                        setFile(null)
+                        setUploadMode('file')
                         setError(null)
                     }}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${!file || file instanceof File
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${uploadMode === 'file'
                         ? 'border-blue-600 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
@@ -170,10 +177,10 @@ export default function UploadForm({ session = null, isDevMode = false }) {
                 <button
                     type="button"
                     onClick={() => {
-                        setFile('drive_placeholder')
+                        setUploadMode('drive')
                         setError(null)
                     }}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${typeof file === 'string'
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${uploadMode === 'drive'
                         ? 'border-blue-600 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
@@ -182,241 +189,244 @@ export default function UploadForm({ session = null, isDevMode = false }) {
                 </button>
             </div>
 
-            {/* Mode Selector (Shared) */}
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Documentation Mode
-                </label>
-                <select
-                    value={selectedMode}
-                    onChange={(e) => setSelectedMode(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={uploading}
-                >
-                    {/* Group modes by department */}
-                    {['R&D', 'HR', 'Finance'].map(dept => {
-                        const deptModes = modes.filter(m => m.department === dept)
-                        if (deptModes.length === 0) return null
+            <form onSubmit={handleSubmit} className="space-y-6">
 
-                        return (
-                            <optgroup key={dept} label={`${dept} Department`}>
-                                {deptModes.map((mode) => (
-                                    <option key={mode.mode} value={mode.mode}>
-                                        {mode.name}
-                                    </option>
-                                ))}
-                            </optgroup>
-                        )
-                    })}
-                </select>
-                {modes.find(m => m.mode === selectedMode) && (
-                    <div className="mt-2 flex items-start gap-2">
-                        {/* Department Badge */}
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${modes.find(m => m.mode === selectedMode).department === 'R&D' ? 'bg-blue-100 text-blue-700' :
-                                modes.find(m => m.mode === selectedMode).department === 'HR' ? 'bg-purple-100 text-purple-700' :
-                                    'bg-green-100 text-green-700'
-                            }`}>
-                            {modes.find(m => m.mode === selectedMode).department}
-                        </span>
-                        <p className="text-sm text-gray-600 flex-1">
-                            {modes.find(m => m.mode === selectedMode).description}
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* Project Name (Shared) */}
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Project Name (Optional)
-                </label>
-                <input
-                    type="text"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="My Awesome Project"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={uploading}
-                />
-            </div>
-
-            {/* Language Selector (Shared) */}
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Language
-                </label>
-                <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={uploading}
-                >
-                    <option value="en">English</option>
-                    <option value="he">Hebrew</option>
-                </select>
-            </div>
-
-            {/* Content Area based on Tab */}
-            {typeof file === 'string' ? (
-                // Drive Input
+                {/* Mode Selector (Shared) */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Google Drive Link
+                        Documentation Mode
+                    </label>
+                    <select
+                        value={selectedMode}
+                        onChange={(e) => setSelectedMode(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        disabled={uploading}
+                    >
+                        {/* Group modes by department */}
+                        {['R&D', 'HR', 'Finance'].map(dept => {
+                            const deptModes = modes.filter(m => m.department === dept)
+                            if (deptModes.length === 0) return null
+
+                            return (
+                                <optgroup key={dept} label={`${dept} Department`}>
+                                    {deptModes.map((mode) => (
+                                        <option key={mode.mode} value={mode.mode}>
+                                            {mode.name}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            )
+                        })}
+                    </select>
+                    {modes.find(m => m.mode === selectedMode) && (
+                        <div className="mt-2 flex items-start gap-2">
+                            {/* Department Badge */}
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${modes.find(m => m.mode === selectedMode).department === 'R&D' ? 'bg-blue-100 text-blue-700' :
+                                modes.find(m => m.mode === selectedMode).department === 'HR' ? 'bg-purple-100 text-purple-700' :
+                                    'bg-green-100 text-green-700'
+                                }`}>
+                                {modes.find(m => m.mode === selectedMode).department}
+                            </span>
+                            <p className="text-sm text-gray-600 flex-1">
+                                {modes.find(m => m.mode === selectedMode).description}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Project Name (Shared) */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Project Name (Optional)
                     </label>
                     <input
                         type="text"
-                        placeholder="https://drive.google.com/file/d/..."
-                        onChange={(e) => setFile(e.target.value)}
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        placeholder="My Awesome Project"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         disabled={uploading}
                     />
-                    <p className="mt-1 text-xs text-gray-500">
-                        Paste a public link or ensure the file is shared.
-                    </p>
                 </div>
-            ) : (
-                // File Dropzone
+
+                {/* Language Selector (Shared) */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Video File
+                        Language
                     </label>
-                    <div
-                        {...getRootProps()}
-                        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-300 hover:border-blue-400'
-                            } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        disabled={uploading}
                     >
-                        <input {...getInputProps()} disabled={uploading} />
-                        {file ? (
-                            <div className="flex items-center justify-center gap-2 text-green-600">
-                                <FileVideo className="w-6 h-6" />
-                                <span className="font-medium">{file.name}</span>
-                                <span className="text-sm text-gray-500">
-                                    ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                                </span>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <Upload className="w-12 h-12 mx-auto text-gray-400" />
-                                <p className="text-gray-600">
-                                    {isDragActive
-                                        ? 'Drop your video here'
-                                        : 'Drag & drop a video, or click to select'}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                    Supports MP4, MOV, AVI, WEBM (max 15 minutes)
-                                </p>
-                            </div>
-                        )}
-                    </div>
+                        <option value="en">English</option>
+                        <option value="he">Hebrew</option>
+                    </select>
                 </div>
-            )}
 
-            {/* Submit Button */}
-            <button
-                type="submit"
-                disabled={!file || uploading || file === 'drive_placeholder'}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-                {uploading ? (
-                    <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        {statusMessage || "Processing..."}
-                    </>
-                ) : (
-                    <>
-                        {typeof file === 'string' ? (
-                            <>
-                                <Upload className="w-5 h-5" />
-                                Import & Analyze
-                            </>
-                        ) : (
-                            <>
-                                <Upload className="w-5 h-5" />
-                                Generate Documentation
-                            </>
-                        )}
-                    </>
-                )}
-            </button>
-        </form>
-
-            {/* Progress Bar */ }
-    {
-        uploading && (
-            <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                    <span>{statusMessage}</span>
-                    <span>{progress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                    />
-                </div>
-            </div>
-        )
-    }
-
-    {/* Error Message */ }
-    {
-        error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div>
-                    <h4 className="font-medium text-red-900">Error</h4>
-                    <p className="text-sm text-red-700 mt-1">{error}</p>
-                </div>
-            </div>
-        )
-    }
-
-    {/* Success Result */ }
-    {
-        result && (
-            <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                        <h4 className="font-medium text-green-900">Documentation Generated!</h4>
-                        <p className="text-sm text-green-700 mt-1">
-                            Task ID: {result.task_id}
+                {/* Content Area based on Tab */}
+                {uploadMode === 'drive' ? (
+                    // Drive Input
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Google Drive Link
+                        </label>
+                        <input
+                            type="text"
+                            value={driveUrl}
+                            placeholder="https://drive.google.com/file/d/..."
+                            onChange={(e) => setDriveUrl(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            disabled={uploading}
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                            Paste a public link or ensure the file is shared.
                         </p>
                     </div>
-                    <button
-                        onClick={resetForm}
-                        className="text-sm text-green-700 hover:text-green-900 font-medium"
-                    >
-                        Upload Another
-                    </button>
-                </div>
+                ) : (
+                    // File Dropzone
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Video File
+                        </label>
+                        <div
+                            {...getRootProps()}
+                            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-300 hover:border-blue-400'
+                                } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <input {...getInputProps()} disabled={uploading} />
+                            {videoFile ? (
+                                <div className="flex items-center justify-center gap-2 text-green-600">
+                                    <FileVideo className="w-6 h-6" />
+                                    <span className="font-medium">{videoFile.name}</span>
+                                    <span className="text-sm text-gray-500">
+                                        ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <Upload className="w-12 h-12 mx-auto text-gray-400" />
+                                    <p className="text-gray-600">
+                                        {isDragActive
+                                            ? 'Drop your video here'
+                                            : 'Drag & drop a video, or click to select'}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                        Supports MP4, MOV, AVI, WEBM (max 15 minutes)
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
-                {/* Documentation Preview */}
-                {/* Documentation Preview with Feedback Loop */}
-                <div className="bg-white rounded-lg shadow-sm">
-                    <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-900">
-                            Generated Documentation
-                        </h3>
-                        {isDevMode && (
-                            <span className="text-xs bg-slate-800 text-slate-200 px-2 py-1 rounded font-mono">
-                                DEV MODE ACTIVE
-                            </span>
-                        )}
+                {/* Submit Button */}
+                <button
+                    type="submit"
+                    disabled={!(uploadMode === 'drive' ? driveUrl.trim() : videoFile) || uploading}
+                    className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                    {uploading ? (
+                        <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            {statusMessage || "Processing..."}
+                        </>
+                    ) : (
+                        <>
+                            {uploadMode === 'drive' ? (
+                                <>
+                                    <Upload className="w-5 h-5" />
+                                    Import & Analyze
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="w-5 h-5" />
+                                    Generate Documentation
+                                </>
+                            )}
+                        </>
+                    )}
+                </button>
+            </form>
+
+            {/* Progress Bar */}
+            {
+                uploading && (
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm text-gray-600">
+                            <span>{statusMessage}</span>
+                            <span>{progress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
                     </div>
-                    <div className="p-6">
-                        <DocViewer
-                            content={result.result}
-                            taskId={result.task_id}
-                            isDevMode={isDevMode}
-                        />
+                )
+            }
+
+            {/* Error Message */}
+            {
+                error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                        <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <h4 className="font-medium text-red-900">Error</h4>
+                            <p className="text-sm text-red-700 mt-1">{error}</p>
+                        </div>
                     </div>
-                </div>
-            </div>
-        )
-    }
+                )
+            }
+
+            {/* Success Result */}
+            {
+                result && (
+                    <div className="space-y-4">
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <h4 className="font-medium text-green-900">Documentation Generated!</h4>
+                                <p className="text-sm text-green-700 mt-1">
+                                    Task ID: {result.task_id}
+                                </p>
+                            </div>
+                            <button
+                                onClick={resetForm}
+                                className="text-sm text-green-700 hover:text-green-900 font-medium"
+                            >
+                                Upload Another
+                            </button>
+                        </div>
+
+                        {/* Documentation Preview */}
+                        {/* Documentation Preview with Feedback Loop */}
+                        <div className="bg-white rounded-lg shadow-sm">
+                            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                                <h3 className="font-semibold text-gray-900">
+                                    Generated Documentation
+                                </h3>
+                                {isDevMode && (
+                                    <span className="text-xs bg-slate-800 text-slate-200 px-2 py-1 rounded font-mono">
+                                        DEV MODE ACTIVE
+                                    </span>
+                                )}
+                            </div>
+                            <div className="p-6">
+                                <DocViewer
+                                    content={result.result}
+                                    taskId={result.task_id}
+                                    isDevMode={isDevMode}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div >
     )
 }

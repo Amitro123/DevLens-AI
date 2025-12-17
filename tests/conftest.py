@@ -1,4 +1,4 @@
-"""Pytest configuration for DocuFlow AI tests"""
+"""Pytest configuration for DevLens AI tests"""
 
 import sys
 from pathlib import Path

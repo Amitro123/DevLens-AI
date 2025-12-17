@@ -12,7 +12,7 @@ google-generativeai==0.3.2
 
 # Video Processing
 opencv-python==4.9.0.80
-moviepy==1.0.3
+# Note: moviepy removed - using ffmpeg subprocess directly
 
 # Vector Database (for RAG)
 chromadb==0.4.22
@@ -33,3 +33,6 @@ google-auth-oauthlib==1.2.0
 
 # Groq STT Integration
 groq==0.4.2
+
+# Note: Acontext observability uses requests (already included above)
+# The acontext SDK is optional - we use the REST API directly

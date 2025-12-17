@@ -1,6 +1,7 @@
 """API routes for video upload and processing"""
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from pathlib import Path
 import uuid
@@ -11,14 +12,56 @@ from app.core.config import settings
 from app.services.video_processor import extract_frames, get_video_duration, VideoProcessingError, extract_audio
 from app.services.ai_generator import get_generator, AIGenerationError
 from app.services.prompt_loader import get_prompt_loader, PromptLoadError
+from app.core.observability import get_acontext_client, extract_code_blocks, trace_session
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["video"])
 
-# In-memory storage for MVP (replace with database in production)
+# In-memory storage for MVP
+# TODO: [CR_FINDINGS 2.2] Replace with PostgreSQL/Redis for production persistence
 task_results: Dict[str, dict] = {}
 session_feedback: Dict[str, list] = {}  # Store feedback by session_id
+
+
+def _store_artifacts(task_id: str, documentation: str, project_name: str) -> None:
+    """
+    Store generated documentation and code blocks as artifacts in Acontext.
+    
+    Args:
+        task_id: Unique task/session identifier
+        documentation: Generated markdown documentation
+        project_name: Name of the project
+    """
+    try:
+        client = get_acontext_client()
+        if not client.is_enabled:
+            return
+        
+        # Store the main documentation
+        client.add_artifact(
+            filename=f"{task_id}_docs.md",
+            content=documentation.encode('utf-8'),
+            path="/outputs/"
+        )
+        logger.info(f"Stored documentation artifact for {task_id}")
+        
+        # Extract and store code blocks
+        code_blocks = extract_code_blocks(documentation)
+        for i, block in enumerate(code_blocks):
+            ext = block.get('lang', 'txt')
+            client.add_artifact(
+                filename=f"{task_id}_code_{i}.{ext}",
+                content=block['code'].encode('utf-8'),
+                path="/outputs/code/"
+            )
+        
+        if code_blocks:
+            logger.info(f"Stored {len(code_blocks)} code block artifacts for {task_id}")
+            
+    except Exception as e:
+        # Don't fail the request if artifact storage fails
+        logger.warning(f"Failed to store artifacts in Acontext: {e}")
 
 
 class UploadResponse(BaseModel):
@@ -107,7 +150,7 @@ async def upload_video(
         
         # Validate video duration
         try:
-            duration = get_video_duration(str(video_path))
+            duration = await run_in_threadpool(get_video_duration, str(video_path))
             if duration > settings.max_video_length:
                 raise HTTPException(
                     status_code=400,
@@ -120,10 +163,11 @@ async def upload_video(
         # Extract frames
         frames_dir = task_dir / "frames"
         try:
-            frame_paths = extract_frames(
+            frame_paths = await run_in_threadpool(
+                extract_frames,
                 str(video_path),
                 str(frames_dir),
-                interval=settings.frame_interval
+                settings.frame_interval
             )
             logger.info(f"Extracted {len(frame_paths)} frames")
         except VideoProcessingError as e:
@@ -151,6 +195,9 @@ async def upload_video(
             "mode": mode,
             "mode_name": prompt_config.name
         }
+        
+        # Store artifacts in Acontext (Flight Recorder)
+        _store_artifacts(task_id, documentation, project_name)
         
         return UploadResponse(
             task_id=task_id,
@@ -364,7 +411,7 @@ async def upload_from_drive(request: DriveUploadRequest):
         calendar.update_session_status(request.session_id, "processing")
         
         # Validate video duration
-        duration = get_video_duration(str(video_path))
+        duration = await run_in_threadpool(get_video_duration, str(video_path))
         if duration > settings.max_video_length:
              raise HTTPException(status_code=400, detail="Video too long")
 
@@ -373,7 +420,7 @@ async def upload_from_drive(request: DriveUploadRequest):
         relevant_segments = None
         
         try:
-            audio_path = extract_audio(str(video_path))
+            audio_path = await run_in_threadpool(extract_audio, str(video_path))
             relevant_segments = generator.analyze_audio_relevance(
                 audio_path, context_keywords=session.context_keywords
             )
@@ -389,11 +436,12 @@ async def upload_from_drive(request: DriveUploadRequest):
                 timestamps.append(seg['start'])
                 timestamps.append(seg['end'])
         
-        frame_paths = extract_frames(
+        frame_paths = await run_in_threadpool(
+            extract_frames,
             str(video_path), 
             str(frames_dir), 
-            interval=settings.frame_interval,
-            timestamps=timestamps
+            settings.frame_interval,
+            timestamps
         )
         
         # Generate Docs
@@ -413,6 +461,9 @@ async def upload_from_drive(request: DriveUploadRequest):
                 "mode_name": prompt_config.name
             }
         )
+        
+        # Store artifacts in Acontext (Flight Recorder)
+        _store_artifacts(request.session_id, documentation, session.title)
         
         return UploadResponse(
             task_id=request.session_id,
@@ -514,7 +565,7 @@ async def upload_to_session(
         
         # Validate video duration
         try:
-            duration = get_video_duration(str(video_path))
+            duration = await run_in_threadpool(get_video_duration, str(video_path))
             if duration > settings.max_video_length:
                 calendar.update_session_status(session_id, "failed", {"error": "Video too long"})
                 raise HTTPException(
@@ -533,7 +584,7 @@ async def upload_to_session(
         # 1. Extract Audio
         try:
             logger.info("Starting Audio-First Analysis...")
-            audio_path = extract_audio(str(video_path))
+            audio_path = await run_in_threadpool(extract_audio, str(video_path))
             
             # 2. Analyze Audio Relevance (Gemini Flash)
             relevant_segments = generator.analyze_audio_relevance(
@@ -561,11 +612,12 @@ async def upload_to_session(
                 
                 logger.info(f"Smart Sampling: Extracting at {len(timestamps)} specific timestamps")
             
-            frame_paths = extract_frames(
+            frame_paths = await run_in_threadpool(
+                extract_frames,
                 str(video_path),
                 str(frames_dir),
-                interval=settings.frame_interval,
-                timestamps=timestamps
+                settings.frame_interval,
+                timestamps
             )
             logger.info(f"Extracted {len(frame_paths)} frames")
         except VideoProcessingError as e:
@@ -595,6 +647,9 @@ async def upload_to_session(
                 "mode_name": prompt_config.name
             }
         )
+        
+        # Store artifacts in Acontext (Flight Recorder)
+        _store_artifacts(session_id, documentation, session.title)
         
         return UploadResponse(
             task_id=session_id,

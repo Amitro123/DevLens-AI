@@ -1,0 +1,46 @@
+# Docker Compose for DevLens AI with Acontext Flight Recorder
+# Usage: docker-compose up -d
+
+services:
+  # Acontext - Context Data Platform for Agent Observability
+  # Dashboard: http://localhost:8001
+  # API: http://localhost:8029
+  acontext:
+    image: memodb/acontext:latest
+    container_name: devlens-acontext
+    ports:
+      - "8001:3000"   # Dashboard
+      - "8029:8029"   # API
+    volumes:
+      - ./data/acontext:/app/data
+    environment:
+      # Optional: OpenAI API key for self-learning features
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8029/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Redis - For async task queue (future Celery workers)
+  redis:
+    image: redis:7-alpine
+    container_name: devlens-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+# Named volumes for data persistence
+volumes:
+  acontext_data:
+  redis_data:

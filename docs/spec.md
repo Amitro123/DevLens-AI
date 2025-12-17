@@ -71,6 +71,33 @@ To build an automated full-stack pipeline that accepts video inputs and outputs 
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## 2.1 Observability: Acontext Flight Recorder
+
+The pipeline is instrumented with **Acontext** for full observability and debugging.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Acontext Integration                     │
+│                                                             │
+│  @trace_pipeline decorator → AcontextClient → Acontext API  │
+│                                                             │
+│  Traced Functions:                                          │
+│  • extract_audio() - FFmpeg audio extraction                │
+│  • analyze_audio_relevance() - Gemini Flash analysis        │
+│  • extract_frames() - OpenCV frame extraction               │
+│  • generate_documentation() - Gemini Pro generation         │
+│                                                             │
+│  Artifacts Stored:                                          │
+│  • {task_id}_docs.md - Generated documentation              │
+│  • {task_id}_code_N.{ext} - Extracted code blocks           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Files:**
+- `backend/app/core/observability.py` - AcontextClient and @trace_pipeline decorator
+- `docker-compose.yml` - Acontext + Redis infrastructure
+- `backend/app/core/config.py` - Settings (ACONTEXT_URL, ACONTEXT_ENABLED)
+
 ## 3. API Endpoints (FastAPI)
 
 ### Calendar & Session Management

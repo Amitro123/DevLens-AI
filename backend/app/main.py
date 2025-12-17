@@ -1,4 +1,4 @@
-"""FastAPI application entry point for DocuFlow AI"""
+"""FastAPI application entry point for DevLens AI"""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI application
 app = FastAPI(
-    title="DocuFlow AI",
+    title="DevLens AI",
     description="Automated Video to Documentation Pipeline using Multimodal AI",
     version="0.1.0",
     docs_url="/docs",
@@ -42,7 +42,7 @@ app.include_router(router)
 async def root():
     """Root endpoint with API information"""
     return {
-        "name": "DocuFlow AI",
+        "name": "DevLens AI",
         "version": "0.1.0",
         "description": "Turn video recordings into professional technical documentation",
         "docs": "/docs"
@@ -61,7 +61,7 @@ async def startup_event():
     import asyncio
     from app.services.calendar_service import start_notification_scheduler
     
-    logger.info("Starting DocuFlow AI...")
+    logger.info("Starting DevLens AI...")
     logger.info(f"Upload directory: {settings.upload_dir}")
     logger.info(f"Frame interval: {settings.frame_interval}s")
     logger.info(f"Max video length: {settings.max_video_length}s")
@@ -72,7 +72,7 @@ async def startup_event():
     # Start notification scheduler (background task)
     asyncio.create_task(start_notification_scheduler())
     
-    logger.info("DocuFlow AI started successfully")
+    logger.info("DevLens AI started successfully")
 
 
 @app.on_event("shutdown")
@@ -81,7 +81,7 @@ async def shutdown_event():
     from app.services.calendar_service import stop_notification_scheduler
     
     stop_notification_scheduler()
-    logger.info("Shutting down DocuFlow AI...")
+    logger.info("Shutting down DevLens AI...")
 
 
 if __name__ == "__main__":

@@ -9,12 +9,16 @@ import os
 
 logger = logging.getLogger(__name__)
 
+# Import tracing decorator
+from app.core.observability import trace_pipeline
+
 
 class VideoProcessingError(Exception):
     """Custom exception for video processing errors"""
     pass
 
 
+@trace_pipeline
 def extract_audio(video_path: str, output_dir: Optional[str] = None) -> str:
     """
     Extract audio track from a video file.
@@ -165,6 +169,7 @@ def extract_frames_at_timestamps(
         raise VideoProcessingError(f"Unexpected error during frame extraction: {str(e)}")
 
 
+@trace_pipeline
 def extract_frames(
     video_path: str,
     output_dir: str,

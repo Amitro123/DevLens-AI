@@ -149,6 +149,7 @@ export default function DocViewer({ content, taskId, isDevMode }) {
                     <div className="flex items-center gap-2 mb-4 text-emerald-400 font-bold border-b border-slate-700 pb-2">
                         <Activity className="w-4 h-4" />
                         SYSTEM TELEMETRY
+                        <span className="text-xs text-slate-500 font-normal">(Mock Data)</span>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">

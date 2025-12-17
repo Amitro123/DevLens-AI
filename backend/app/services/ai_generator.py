@@ -7,6 +7,7 @@ import logging
 import json
 
 from app.core.config import settings
+from app.core.observability import trace_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,7 @@ class DocumentationGenerator:
         )
         return response
 
+    @trace_pipeline
     def analyze_audio_relevance(
         self,
         audio_path: str,
@@ -177,6 +179,7 @@ class DocumentationGenerator:
             logger.error(f"Audio analysis failed: {str(e)}")
             raise AIGenerationError(f"Failed to analyze audio: {str(e)}")
     
+    @trace_pipeline
     def generate_documentation(
         self,
         frame_paths: List[str],

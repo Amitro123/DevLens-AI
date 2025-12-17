@@ -15,6 +15,7 @@ The system now includes:
 - **Speaker Identification** - Attribute quotes and decisions to specific roles
 - **Export Integrations** - Send docs to Notion, Jira, or clipboard
 - **Multi-Department Personas** - Specialized modes for R&D, HR, and Finance teams
+- **Acontext Flight Recorder** - Full pipeline observability with trace logging and artifact storage
 
 ## Prompt Registry Architecture
 
@@ -727,4 +728,4 @@ The dynamic prompt registry system provides:
 - ✅ **Version Control** - Track prompt changes over time
 - ✅ **Testing** - Easy to A/B test different prompts
 - ✅ **Cost Optimization** - Smart sampling with audio filter
-
+- ✅ **Observability** - Acontext Flight Recorder for pipeline tracing

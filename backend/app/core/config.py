@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     
+    # Acontext Configuration (Flight Recorder)
+    acontext_url: str = "http://localhost:8029/api/v1"
+    acontext_api_key: str = "sk-ac-your-root-api-bearer-token"
+    acontext_enabled: bool = True
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

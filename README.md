@@ -14,7 +14,7 @@ In modern engineering, knowledge is often lost in video calls. DevLens acts as a
 * **☁️ Google Drive Import** - Import videos directly from Google Drive links
 * **⚡ Audio-First Smart Sampling** - Analyzes audio to extract frames only during technical discussions
 * **💻 Code Extraction (OCR)** - Transcribes visible code from IDEs and terminals verbatim
-* **🎤 Groq STT Integration** - Ultra-fast Whisper-based transcription with segment timestamps
+* **🎤 Audio Analysis with Gemini Flash** - Fast audio content analysis to identify technical segments
 * **🔔 Smart Notification Scheduler** - Pre-meeting reminders and post-meeting upload nudges
 * **🎯 Dynamic Prompt Registry** - Configure AI personas via YAML files, not hardcoded prompts
 * **🔄 Async Processing** - Background workers for long videos (Celery + Redis)
@@ -42,8 +42,8 @@ In modern engineering, knowledge is often lost in video calls. DevLens acts as a
 - Includes irrelevant content (small talk, jokes, logistics)
 
 **DevLens Audio-First (Fast & Accurate):**
-- Step 1: Extract audio (2s) → Transcribe with Groq STT (ultra-fast)
-- Step 2: Analyze with Gemini Flash (5s) → Identify technical timestamps
+- Step 1: Extract audio (2s)
+- Step 2: Analyze with Gemini Flash (5s) → Identify technical segments (ignores small talk)
 - Step 3: Extract frames **only at technical moments** → 60-80% fewer frames
 - Step 4: Generate docs with Gemini Pro from relevant frames
 
@@ -83,12 +83,11 @@ graph TB
 ## 🎯 Smart Sampling Workflow
 
 1. **Extract Audio** - FFmpeg extracts audio track from video
-2. **Transcribe with Groq** - Ultra-fast Whisper-based STT with timestamps
-3. **Analyze with Flash** - Gemini 1.5 Flash identifies technical segments (ignores small talk)
-4. **Smart Frame Extraction** - Extract frames only at relevant timestamps
-5. **Code Extraction** - If IDE/terminal visible, transcribe code verbatim
-6. **Generate with Pro** - Gemini 1.5 Pro creates documentation from selected frames
-7. **Export** - Send to Notion, Jira, or copy to clipboard
+2. **Analyze with Flash** - Gemini 1.5 Flash analyzes audio and identifies technical segments (ignores small talk)
+3. **Smart Frame Extraction** - Extract frames only at relevant timestamps
+4. **Code Extraction** - If IDE/terminal visible, transcribe code verbatim
+5. **Generate with Pro** - Gemini 1.5 Pro creates documentation from selected frames
+6. **Export** - Send to Notion, Jira, or copy to clipboard
 
 **Benefits:**
 - 💰 **60-80% Cost Reduction** - Process only relevant frames
@@ -102,7 +101,6 @@ graph TB
 - Python 3.10+
 - FastAPI
 - Google Gemini 1.5 Pro & Flash
-- Groq Whisper STT
 - OpenCV + FFmpeg
 - Celery + Redis (async workers)
 
@@ -113,6 +111,21 @@ graph TB
 - Axios
 
 ## 📦 Installation
+
+### 🚀 Quick Start (Windows)
+
+Run the unified startup script to start everything with one click:
+
+```powershell
+.\start_devlens.ps1
+```
+
+This will:
+- Check/start Docker Desktop
+- Start Acontext + Redis via docker-compose
+- Open Backend server in a new terminal
+- Open Frontend server in a new terminal
+- Print all local URLs
 
 ### Prerequisites
 
@@ -133,7 +146,7 @@ sudo apt-get install ffmpeg
 
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 cp .env.example .env
 # Edit .env and add your GEMINI_API_KEY and GROQ_API_KEY
 uvicorn app.main:app --reload
@@ -150,6 +163,21 @@ npm run dev
 ```
 
 Frontend will run at `http://localhost:5173`
+
+###  🔍 Acontext Flight Recorder (Optional)
+
+Start the observability stack with Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+This starts:
+- **Acontext Dashboard**: `http://localhost:8001` - View pipeline traces and artifacts
+- **Acontext API**: `http://localhost:8029` - REST API for observability data
+- **Redis**: `http://localhost:6379` - For future async processing
+
+All video processing steps are automatically traced when Acontext is running.
 
 ##  Usage
 

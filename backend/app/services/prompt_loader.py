@@ -1,8 +1,9 @@
-"""Dynamic prompt loading service for DocuFlow AI"""
+"""Dynamic prompt loading service for DevLens AI"""
 
 import yaml
 from pathlib import Path
 from typing import Dict, Optional
+from string import Template
 from pydantic import BaseModel, Field
 import logging
 
@@ -118,11 +119,16 @@ class PromptLoader:
             Data dictionary with interpolated values
         """
         def interpolate_string(s: str) -> str:
-            """Interpolate a single string"""
+            """Interpolate a single string using safe_substitute to avoid crashes."""
+            # Convert {var} syntax to $var for Template
+            # This handles cases where prompts contain {} for JSON examples
+            import re
+            # Only convert {word} patterns, not arbitrary {}
+            template_str = re.sub(r'\{(\w+)\}', r'$\1', s)
             try:
-                return s.format(**context)
-            except KeyError as e:
-                logger.warning(f"Missing context variable: {e}")
+                return Template(template_str).safe_substitute(**context)
+            except Exception as e:
+                logger.warning(f"Template substitution failed: {e}")
                 return s
         
         # Interpolate system_instruction
