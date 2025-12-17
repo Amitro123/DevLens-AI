@@ -2,6 +2,23 @@
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+
+# Explicitly load .env file
+# Try loading from current directory or parent directory to handle different runtime contexts
+env_path = Path(".env")
+if not env_path.exists():
+    env_path = Path("backend/.env")
+if not env_path.exists():
+    env_path = Path("../.env")
+
+# Check if file exists before loading to avoid warnings, though load_dotenv handles missing files gracefully
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    # Fallback: try loading without path (defaults to .env in cwd)
+    load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -26,14 +43,16 @@ class Settings(BaseSettings):
     api_port: int = 8000
     
     # Acontext Configuration (Flight Recorder)
+    # Set to True when running with docker-compose infrastructure
     acontext_url: str = "http://localhost:8029/api/v1"
     acontext_api_key: str = "sk-ac-your-root-api-bearer-token"
-    acontext_enabled: bool = True
+    acontext_enabled: bool = False  # Disabled by default for local dev
     
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
     
     def get_upload_path(self) -> Path:

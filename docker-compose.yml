@@ -1,30 +1,17 @@
-# Docker Compose for DevLens AI with Acontext Flight Recorder
+# Docker Compose for DevLens AI (Optional Infrastructure)
 # Usage: docker-compose up -d
+#
+# NOTE: The DevLens app works without Docker!
+# Run `.\start_devlens.ps1` to start in local mode without containers.
+# These services are optional and provide additional features:
+# - Redis: Async task queue (future Celery workers)
+# - PostgreSQL: Persistent storage (future)
+# - Acontext: Observability dashboard (when images are available)
 
 services:
-  # Acontext - Context Data Platform for Agent Observability
-  # Dashboard: http://localhost:8001
-  # API: http://localhost:8029
-  acontext:
-    image: memodb/acontext:latest
-    container_name: devlens-acontext
-    ports:
-      - "8001:3000"   # Dashboard
-      - "8029:8029"   # API
-    volumes:
-      - ./data/acontext:/app/data
-    environment:
-      # Optional: OpenAI API key for self-learning features
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8029/api/v1/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-
-  # Redis - For async task queue (future Celery workers)
+  # ============================================================================
+  # Redis - Optional: For async task queue (future Celery workers)
+  # ============================================================================
   redis:
     image: redis:7-alpine
     container_name: devlens-redis
@@ -34,13 +21,52 @@ services:
       - ./data/redis:/data
     command: redis-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 3
     restart: unless-stopped
+  # ============================================================================
+  # PostgreSQL - Optional: For persistent storage
+  # ============================================================================
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: devlens-postgres
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: devlens
+  #   volumes:
+  #     - ./data/postgres:/var/lib/postgresql/data
+  #   restart: unless-stopped
 
-# Named volumes for data persistence
-volumes:
-  acontext_data:
-  redis_data:
+  # ============================================================================
+  # Acontext API & Dashboard - Commented out until images are publicly available
+  # ============================================================================
+  # acontext-api:
+  #   image: memodbio/acontext-api:latest
+  #   container_name: devlens-acontext-api
+  #   ports:
+  #     - "8029:8029"
+  #   environment:
+  #     - PORT=8029
+  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/devlens
+  #     - REDIS_URL=redis://redis:6379
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   restart: unless-stopped
+
+  # acontext-dashboard:
+  #   image: memodbio/acontext-dashboard:latest
+  #   container_name: devlens-acontext-dashboard
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NEXT_PUBLIC_API_URL=http://localhost:8029/api/v1
+  #   depends_on:
+  #     - acontext-api
+  #   restart: unless-stopped

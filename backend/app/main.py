@@ -37,6 +37,11 @@ app.add_middleware(
 # Include API routes
 app.include_router(router)
 
+# Mount static files for upload access
+from fastapi.staticfiles import StaticFiles
+upload_path = settings.get_upload_path()
+app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
+
 
 @app.get("/")
 async def root():

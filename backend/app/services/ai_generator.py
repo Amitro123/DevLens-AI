@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Dict
 import logging
 import json
+import re
 
 from app.core.config import settings
 from app.core.observability import trace_pipeline
@@ -104,8 +105,8 @@ class DocumentationGenerator:
         """Initialize the Gemini API clients"""
         try:
             genai.configure(api_key=settings.gemini_api_key)
-            self.model_pro = genai.GenerativeModel('gemini-1.5-pro')
-            self.model_flash = genai.GenerativeModel('gemini-1.5-flash')
+            self.model_pro = genai.GenerativeModel('gemini-2.5-flash-lite')
+            self.model_flash = genai.GenerativeModel('gemini-2.5-flash-lite')
             logger.info("Gemini API clients initialized successfully")
         except Exception as e:
             raise AIGenerationError(f"Failed to initialize Gemini API: {str(e)}")
@@ -262,6 +263,34 @@ class DocumentationGenerator:
                 raise AIGenerationError("Gemini returned empty response")
             
             documentation = response.text.strip()
+            
+            # --- Post-Processing: Embed Images ---
+            # Replace [Frame X] with actual image Markdown
+            
+            def _get_web_url(local_path: str) -> str:
+                try:
+                    rel_path = Path(local_path).relative_to(settings.get_upload_path().resolve())
+                    return f"/uploads/{rel_path.as_posix()}"
+                except ValueError:
+                    # Try non-resolved path too
+                    try:
+                        rel_path = Path(local_path).relative_to(settings.get_upload_path())
+                        return f"/uploads/{rel_path.as_posix()}"
+                    except ValueError:
+                        return f"/uploads/{Path(local_path).name}"
+
+            def replace_match(match):
+                try:
+                    idx = int(match.group(1)) - 1 # 1-based index to 0-based
+                    if 0 <= idx < len(frame_paths):
+                        url = _get_web_url(frame_paths[idx])
+                        return f"![Frame {idx+1}]({url})"
+                except Exception:
+                    pass
+                return match.group(0)
+
+            # Replace [Frame X] patterns
+            documentation = re.sub(r'\[Frame (\d+)\]', replace_match, documentation)
             
             logger.info(f"Successfully generated {len(documentation)} characters of documentation")
             

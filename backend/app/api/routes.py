@@ -510,7 +510,28 @@ async def upload_to_session(
         session = calendar.get_session(session_id)
         
         if not session:
-            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+            # Lazy creation for development/mock compatibility
+            logger.info(f"Session {session_id} not found, lazily creating...")
+            from app.services.calendar_service import DraftSession
+            from datetime import datetime, timedelta
+            
+            session = DraftSession(
+                session_id=session_id,
+                event_id=f"evt_mock_{session_id}",
+                title=f"Session {session_id}",
+                attendees=["user@example.com"],
+                context_keywords=["general"],
+                status="ready_for_upload",
+                created_at=datetime.now(),
+                suggested_mode="general_doc",
+                metadata={
+                    "event_start": datetime.now().isoformat(),
+                    "event_end": (datetime.now() + timedelta(hours=1)).isoformat(),
+                    "description": "Auto-created session from upload"
+                }
+            )
+            # Inject into calendar
+            calendar.draft_sessions[session_id] = session
         
         # Allow upload for both waiting and ready states
         allowed_statuses = {"waiting_for_upload", "ready_for_upload"}

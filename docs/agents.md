@@ -27,7 +27,7 @@ Each YAML file defines:
 - **id**: Unique identifier for the mode
 - **name**: Display name for the mode
 - **description**: Brief explanation of what the mode does
-- **model**: Optional model override (gemini-1.5-pro or gemini-1.5-flash)
+- **model**: Optional model override (gemini-2.5-flash-lite or gemini-2.5-flash)
 - **system_instruction**: Detailed AI persona and instructions (supports context interpolation)
 - **output_format**: Expected output format (markdown or json)
 - **guidelines**: List of specific guidelines for the AI
@@ -615,7 +615,7 @@ Create a new file in `backend/prompts/` with a descriptive name (e.g., `api_docs
 id: "api_docs"
 name: "API Documentation Generator"
 description: "Generates comprehensive API documentation from video demonstrations"
-model: "gemini-1.5-pro"  # Optional, defaults to pro
+model: "gemini-2.5-flash-lite"  # Optional, defaults to pro
 system_instruction: |
   **Meeting Context:**
   - Title: {meeting_title}

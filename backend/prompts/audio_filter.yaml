@@ -1,7 +1,7 @@
 id: "audio_filter"
 name: "⚡ Audio Semantic Filter"
 description: "Analyzes audio to identify timestamps where technical content is discussed"
-model: "gemini-1.5-flash"
+model: "gemini-2.5-flash-lite"
 system_instruction: |
   You are a Technical Content Filter AI. Your job is to listen to meeting/video audio and identify timestamps where TECHNICAL content is discussed.
   
@@ -71,5 +71,5 @@ guidelines:
   - Ignore pure audio content (discussions without visual reference)
   - Use context keywords to inform relevance decisions
   - Prefer longer continuous segments over many short ones
-  - Minimum segment length: 5 seconds
-  - Maximum gap between segments to merge: 10 seconds
+  - "Minimum segment length: 5 seconds"
+  - "Maximum gap between segments to merge: 10 seconds"

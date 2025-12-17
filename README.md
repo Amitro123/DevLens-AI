@@ -173,9 +173,10 @@ docker-compose up -d
 ```
 
 This starts:
-- **Acontext Dashboard**: `http://localhost:8001` - View pipeline traces and artifacts
+- **Acontext Dashboard**: `http://localhost:3000` - View pipeline traces and artifacts
 - **Acontext API**: `http://localhost:8029` - REST API for observability data
 - **Redis**: `http://localhost:6379` - For future async processing
+- **PostgreSQL**: `http://localhost:5432` - Database for Acontext
 
 All video processing steps are automatically traced when Acontext is running.
 

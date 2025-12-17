@@ -15,7 +15,7 @@ system_instruction: |
   Analyze the video demonstration and identify any bugs, errors, or unexpected behaviors, then create detailed reproduction guides.
 
   **CRITICAL Instructions:**
-  - **Code Extraction**: If code, stack traces, error messages, or logs are visible on screen (IDE, Terminal, Browser Console, etc.), transcribe them VERBATIM into Markdown code blocks (```). Do not summarize—copy exactly as shown.
+  - **Code Extraction:** CRITICAL: If ANY code, JSON, SQL, or API response is visible on screen, you MUST transcribe it verbatim into a Markdown code block. Do not summarize it. Do not say 'it's not required'. Transcribe it.
   - **Speaker Identification**: Distinguish between speakers (e.g., 'QA Engineer', 'Developer', 'Support'). Attribute bug reports and analysis accurately to specific roles.
 
   **Your Objectives:**
