@@ -1,48 +1,71 @@
 # Code Review Findings: DevLens AI
 
-> **Status: ✅ ALL ISSUES RESOLVED** (2025-12-19)
+> **Status: ⚠️ PENDING ACTION** (Updated: 2025-12-19)
 
-## 1. Critical Issues
+## 1. Test Suite Failures & Regressions
 
-### 1.1 Blocking Operations in Async Pipeline ✅ FIXED
-**Severity:** Critical
-**Resolution:** Wrapped `generator.analyze_video_relevance` and `generator.generate_documentation` in `run_in_threadpool` in `video_pipeline.py`. The `time.sleep(1)` polling loop now runs safely inside the thread pool, not blocking the event loop.
+### 1.1 `test_drive_integration.py` Failure
+**Severity:** **High**
+- **Issue:** The test fails with `AttributeError: module 'app.services.video_pipeline' has no attribute 'extract_audio'`.
+- **Cause:** The `extract_audio` function was likely moved or removed during the `VideoProcessor` refactor, but the test still attempts to patch it in `app.services.video_pipeline`.
+- **Location:** `tests/test_drive_integration.py:30`
 
-### 1.2 Dead Code: GroqTranscriber ✅ FIXED
-**Severity:** Medium
-**Resolution:** Removed `GroqTranscriber` class from `ai_generator.py`, removed `groq==0.4.2` from `requirements.txt`, and deleted `test_groq_transcriber.py`.
+### 1.2 `test_calendar_service.py` Failures
+**Severity:** **Medium**
+- **Issue:** Multiple assertions fail because the `CalendarWatcher` is initialized with hardcoded mock sessions (`mtg_1`, `mtg_2`, `mtg_3`) instead of an empty state.
+- **Impact:** Tests expecting 0 sessions find 3. Tests expecting to add 2 sessions find 5.
+- **Location:** `backend/app/services/calendar_service.py` (init method) vs `tests/test_calendar_service.py`.
 
-## 2. Code Quality & Cleanup
+### 1.3 Missing Test Dependencies
+**Severity:** **Low**
+- **Issue:** `pytest` and `pytest-asyncio` were missing from the environment/requirements, though they are needed for running tests.
+- **Action:** Installed manually during review.
 
-### 2.1 Unused Import: extract_audio ✅ FIXED
-**Severity:** Low
-**Resolution:** Removed unused `extract_audio` import from `video_pipeline.py`.
+## 2. Architecture & Design Observations
 
-### 2.2 Branding Inconsistencies ✅ FIXED
-**Severity:** Low
-**Resolution:** Updated all "DocuFlow AI" references to "DevLens AI" in:
-- `backend/app/__init__.py`
-- `backend/scripts/test_mvp.py`
-- `frontend/README.md`
-- `frontend/index.html`
+### 2.1 State Persistence (In-Memory vs. Persistent)
+**Severity:** **Medium**
+- **Observation:** Session state (`task_results`, `draft_sessions`) is primarily managed in-memory (dictionaries).
+- **Risk:** Server restarts cause loss of session data (except for what is saved to disk via `StorageService` or re-initialized mocks).
+- **Recommendation:** Implement Redis or PostgreSQL for production session management as noted in TODOs.
 
-### 2.3 Hardcoded Telemetry in Frontend ✅ PREVIOUSLY FIXED
-**Severity:** Low
-**Status:** Already marked as "(Mock Data)" in the UI telemetry panel header.
+### 2.2 Hardcoded Mock Data in Production Code
+**Severity:** **Medium**
+- **Observation:** `CalendarWatcher` initializes with fixed sessions (`mtg_1`, `mtg_2`, `mtg_3`) in `backend/app/services/calendar_service.py`.
+- **Context:** While useful for the MVP/Demo, this pollutes the production service logic with test data.
+- **Recommendation:** Move mock data injection to a separate seeding script or conditional "Demo Mode" flag.
 
-## 3. Testing Gaps
+### 2.3 Deprecated API Usage
+**Severity:** **Low**
+- **FastAPI:** Uses `@app.on_event("startup")` and `@app.on_event("shutdown")` which are deprecated.
+  - **Recommendation:** Migrate to `lifespan` context manager.
+- **Pydantic:** Uses V1/V2 compatibility layer (`pydantic.BaseModel` instead of `pydantic.v1.BaseModel` or full V2 migration). Warnings observed: `The __fields__ attribute is deprecated`.
 
-### 3.1 Tests Mock Everything
-**Severity:** Medium
-**Status:** Acknowledged. Full integration tests are recommended but outside the scope of this fix.
+## 3. Code Refactoring Issues
 
----
+### 3.1 `video_pipeline.py` Import Errors
+**Severity:** **Medium**
+- **Issue:** `video_pipeline.py` imports `extract_audio` from `app.services.video_processor`. However, tests suggest `video_pipeline` itself is expected to expose it or use it differently. The `test_drive_integration.py` tries to patch `app.services.video_pipeline.extract_audio`, which implies a mismatch between the test expectation and the actual module structure.
 
-## Summary
+## 4. Technical Debt & TODOs
 
-All actionable issues from the original code review have been resolved:
-1. ✅ Async pipeline no longer blocks the event loop
-2. ✅ Dead code and unused dependency removed
-3. ✅ Branding unified to "DevLens AI"
-4. ✅ Unused imports cleaned up
+The following explicit TODOs were found in the codebase:
 
+- **Security/RBAC:** `backend/app/services/ai_generator.py`: "IMPLEMENT RBAC - Filter context by user.department"
+- **Infrastructure:** `backend/app/workers/__init__.py`: "Implement Celery worker configuration" & "Add task queue integration with Redis"
+- **Persistence:** `backend/app/api/routes.py`: "[CR_FINDINGS 2.2] Replace with PostgreSQL/Redis for production persistence"
+- **RAG:** `backend/app/api/routes.py`: "Add RAG context retrieval"
+- **Docs:** `README.md`: "Add hero screenshot/demo GIF here"
+
+## 5. Configuration & Environment
+
+- **API Keys:** Properly using `python-dotenv` and `pydantic-settings`.
+- **Optional Keys:** `GROQ_API_KEY` is optional with fallback, which is good design.
+- **Dependencies:** `requirements.txt` seems to be missing `pytest` related packages for development.
+
+## 6. Recommendations
+
+1.  **Fix Tests:** Update `test_drive_integration.py` to patch the correct location of `extract_audio` (likely `app.services.video_processor`).
+2.  **Clean Mocks:** Refactor `CalendarWatcher` to accept an initial state or use a factory for tests to avoid hardcoded pollution.
+3.  **Persistence:** Prioritize moving session state to Redis to survive restarts.
+4.  **Async/Workers:** Implement the Celery workers to handle video processing off the main web server loop (currently using `run_in_threadpool` which is an okay interim solution but not scalable).
