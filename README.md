@@ -12,7 +12,7 @@ In modern engineering, knowledge is often lost in video calls. DevLens acts as a
 
 * **📅 Calendar Integration** - Auto-creates draft sessions from upcoming meetings
 * **History & Persistence** - Revisit past documentation sessions via the dedicated History view
-* **☁️ Google Drive Import** - Import videos directly from Google Drive links
+* **🔌 Google Drive Integration** - Native integration to import videos (supports OAuth & Mock modes)
 * **⚡ Audio-First Smart Sampling** - Analyzes audio to extract frames only during technical discussions
 * **💻 Code Extraction (OCR)** - Transcribes visible code from IDEs and terminals verbatim
 * **🎤 Audio Analysis with Gemini Flash** - Fast audio content analysis to identify technical segments
@@ -29,6 +29,7 @@ In modern engineering, knowledge is often lost in video calls. DevLens acts as a
   - 👔 **HR Interviews** - Candidate scorecards with strengths and cultural fit
   - 💰 **Finance Reviews** - Budget analysis and financial data extraction
 * **🔄 Active Session Recovery** - Automatically reconnect to pending jobs after navigation or refresh
+* **🧟 Zombie Session Cleanup** - Auto-expires stale sessions to prevent stuck UI
 * **🚀 Dual-Stream Optimization** - 1 FPS proxy for fast analysis + original video for high-res extraction
 * **🛡️ Visual Quality Control** - AI filters out blank screens, spinners, and blurred transitions
 * **🎬 Click-to-Seek Navigation** - Click any documentation image to jump to that moment in the source video
@@ -210,11 +211,12 @@ All video processing steps are automatically traced when Acontext is running.
 5.  Wait for AI to process and generate documentation
 
 ### Google Drive Import
-
-1.  Select **"Import from Drive"** tab
-2.  Paste a Google Drive share link (must be accessible)
-3.  Click "Import & Analyze"
-4.  System downloads and processes the video automatically
+1.  Select **"Import from Drive"** tab.
+2.  The list will populate from your connected Drive.
+    *   **Note:** Requires `credentials.json` in backend for real data.
+    *   **Demo Mode:** If no credentials found, shows sample mock files.
+3.  Select a file and click **"Import & Analyze"**.
+4.  DevLens downloads the file and starts the pipeline.
 
 ### Export & Integrations
 
@@ -403,7 +405,7 @@ DevLens-AI/
 - [x] Calendar integration with draft sessions
 - [x] Audio-first smart sampling with Gemini Flash
 - [x] Context-aware prompts with meeting details
-- [x] Google Drive Integration (Import via URL)
+- [x] Native Google Drive Integration (OAuth + Mock Fallback)
 - [x] Groq STT Integration (Whisper-based transcription)
 - [x] Smart Notification Scheduler (reminders & nudges)
 - [x] Developer Mode with Telemetry

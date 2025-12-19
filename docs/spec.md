@@ -10,6 +10,8 @@ To build an automated full-stack pipeline that accepts video inputs and outputs 
 - **Groq STT** for ultra-fast Whisper-based transcription with timestamps
 - **Active Session Recovery** for persistent processing across browser refreshes
 - **Click-to-Seek Navigation** for interactive video timestamp jumping from documentation images
+- **Zombie Session Cleanup** for automatic expiration of stale processing tasks
+- **Native Google Drive Integration** via `google-api-python-client`
 - **Backend Integration Test Suite** for core flow verification
 
 ## 2. Architecture Overview
@@ -18,10 +20,11 @@ To build an automated full-stack pipeline that accepts video inputs and outputs 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   Calendar Service (Backend)                 │
+│                   Calendar Service (Backend)                │
 │  - Mock events (Design Review, Bug Triage, etc.)            │
 │  - Auto-create draft sessions                               │
 │  - Mode suggestion based on keywords                        │
+│  - **Clean Startup**: Deterministic mocks, no stuck states  │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -151,19 +154,20 @@ Upload video to a specific draft session with auto-context injection.
 1. Validate session exists and status is "ready_for_upload" (or "waiting_for_upload")
 2. ...
 
-#### `POST /api/v1/upload/drive`
-Import video from Google Drive and initiate processing.
+
+#### `POST /api/v1/import/drive`
+Import video from Google Drive (Native).
 
 **Input:**
-- `url`: Google Drive File URL (public or shared)
-- `session_id`: Session UUID
-- `access_token`: Optional OAuth token
+- `file_uri`: drive://file-id
+- `file_name`: Name of file
+- `mode`: Processing mode
 
 **Process:**
-1. Extract File ID from URL
-2. Stream download video to task directory
-3. Trigger standard `upload_to_session` processing pipeline
-...
+1. Connect to Drive MCP server
+2. Download binary content to task directory
+3. Trigger standard pipeline
+
 
 #### `POST /api/v1/sessions/{session_id}/feedback`
 Submit user feedback and ratings.
@@ -225,6 +229,14 @@ Retrieve any currently active processing or uploading session for UI recovery.
 Get real-time status and progress percentage.
 - Supports both manual and calendar-backed sessions.
 - Automatically maps internal status codes to numeric progress.
+- **Zombie Cleanup**: Checks `last_updated`; if >10m stale, marks as failed.
+
+#### `POST /api/v1/sessions/{session_id}/cancel`
+Manually cancel a stuck or unwanted processing session.
+
+#### `GET /api/v1/integrations/drive/files`
+List available video files from Google Drive.
+
 
 ### Manual Upload (Legacy)
 ...
@@ -338,6 +350,8 @@ class CalendarWatcher:
 ```
 fastapi==0.104.1
 google-generativeai==0.3.1
+google-api-python-client
+google-auth-oauthlib
 opencv-python==4.8.1.78
 ffmpeg-python==0.2.0  # NEW: Audio extraction
 pyyaml==6.0.1

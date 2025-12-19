@@ -23,6 +23,9 @@ export const api = {
         headers: { 'Content-Type': 'multipart/form-data' }
     })),
     uploadFromDrive: (data) => handleResponse(axios.post('/api/v1/upload/drive', data)),
+    // MCP Drive Integration
+    getDriveFiles: () => handleResponse(axios.get('/api/v1/integrations/drive/files')),
+    importFromDrive: (data) => handleResponse(axios.post('/api/v1/import/drive', data)),
 
     // Modes
     getModes: () => handleResponse(axios.get('/api/v1/modes')),

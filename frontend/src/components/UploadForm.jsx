@@ -19,6 +19,9 @@ export default function UploadForm({ session = null, isDevMode = false }) {
     const [language, setLanguage] = useState('en')
     const [videoFile, setVideoFile] = useState(null)
     const [driveUrl, setDriveUrl] = useState('')
+    const [driveFiles, setDriveFiles] = useState([])
+    const [isLoadingFiles, setIsLoadingFiles] = useState(false)
+    const [selectedDriveFile, setSelectedDriveFile] = useState(null)
     const [uploadMode, setUploadMode] = useState('file')
     const [uploading, setUploading] = useState(false)
     const [progress, setProgress] = useState(0)
@@ -51,6 +54,26 @@ export default function UploadForm({ session = null, isDevMode = false }) {
     useEffect(() => {
         fetchModes()
     }, [])
+
+    useEffect(() => {
+        if (uploadMode === 'drive') {
+            loadDriveFiles()
+        }
+    }, [uploadMode])
+
+    const loadDriveFiles = async () => {
+        setIsLoadingFiles(true)
+        setError(null)
+        try {
+            const data = await api.getDriveFiles()
+            setDriveFiles(data.files || [])
+        } catch (err) {
+            console.error(err)
+            // Don't show error immediately to avoid jarring UI, just log
+        } finally {
+            setIsLoadingFiles(false)
+        }
+    }
 
     const fetchModes = async () => {
         try {
@@ -87,9 +110,9 @@ export default function UploadForm({ session = null, isDevMode = false }) {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        const hasInput = uploadMode === 'drive' ? driveUrl.trim() : videoFile
+        const hasInput = uploadMode === 'drive' ? selectedDriveFile : videoFile
         if (!hasInput) {
-            setError(uploadMode === 'drive' ? 'Please enter a Drive URL' : 'Please select a video file')
+            setError(uploadMode === 'drive' ? 'Please select a file from Drive' : 'Please select a video file')
             return
         }
 
@@ -115,12 +138,11 @@ export default function UploadForm({ session = null, isDevMode = false }) {
             let data;
 
             if (uploadMode === 'drive') {
-                if (!session) {
-                    throw new Error("Drive import currently requires an active session context.")
-                }
-                data = await api.uploadFromDrive({
-                    url: driveUrl,
-                    session_id: session.id
+                // MCP Flow
+                data = await api.importFromDrive({
+                    file_uri: selectedDriveFile.id,
+                    file_name: selectedDriveFile.name,
+                    mode: selectedMode
                 })
             } else {
                 const formData = new FormData()
@@ -306,18 +328,46 @@ export default function UploadForm({ session = null, isDevMode = false }) {
                 <div className="bg-slate-800/50 rounded-xl p-1 border border-slate-700/50">
                     {uploadMode === 'drive' ? (
                         <div className="p-4">
-                            <label className={labelClasses}>Google Drive Link</label>
-                            <input
-                                type="text"
-                                value={driveUrl}
-                                placeholder="https://drive.google.com/file/d/..."
-                                onChange={(e) => setDriveUrl(e.target.value)}
-                                className={inputClasses}
-                                disabled={uploading}
-                            />
-                            <p className="mt-2 text-xs text-slate-500">
-                                Paste a public link or ensure the file is shared with the service account.
-                            </p>
+                            <h3 className="text-slate-300 text-sm font-medium mb-3">Select a Video from Drive</h3>
+
+                            {isLoadingFiles ? (
+                                <div className="flex items-center justify-center py-10 text-slate-500">
+                                    <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                                    Loading files...
+                                </div>
+                            ) : driveFiles.length === 0 ? (
+                                <div className="text-center py-8 text-slate-500 bg-slate-800/50 rounded-lg">
+                                    <p>No video files found.</p>
+                                    <p className="text-xs mt-1">Make sure the MCP server is running.</p>
+                                    <button onClick={loadDriveFiles} className="text-indigo-400 text-sm mt-2 hover:underline">Retry</button>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                                    {driveFiles.map((file) => (
+                                        <div
+                                            key={file.id}
+                                            onClick={() => setSelectedDriveFile(file)}
+                                            className={`flex items-center p-3 rounded-lg cursor-pointer transition-all border ${selectedDriveFile?.id === file.id
+                                                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-100'
+                                                    : 'bg-slate-700/30 border-slate-600/30 hover:bg-slate-700 hover:border-slate-500 text-slate-300'
+                                                }`}
+                                        >
+                                            <div className="p-2 bg-slate-800 rounded-md mr-3">
+                                                <FileVideo className="w-5 h-5 text-slate-400" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium truncate">{file.name}</p>
+                                                <p className="text-xs text-slate-500 truncate">{file.mimeType}</p>
+                                            </div>
+                                            {selectedDriveFile?.id === file.id && (
+                                                <div className="text-indigo-400">
+                                                    <CheckCircle className="w-5 h-5" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="p-1">
@@ -371,7 +421,7 @@ export default function UploadForm({ session = null, isDevMode = false }) {
                 {/* Submit Button */}
                 <button
                     type="submit"
-                    disabled={!(uploadMode === 'drive' ? driveUrl.trim() : videoFile) || uploading}
+                    disabled={!(uploadMode === 'drive' ? selectedDriveFile : videoFile) || uploading}
                     className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-4 px-6 rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] flex items-center justify-center gap-3"
                 >
                     {uploading ? (

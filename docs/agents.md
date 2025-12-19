@@ -9,7 +9,7 @@ The system now includes:
 - **Dual-Model Architecture** - Gemini Flash for audio analysis, Gemini Pro for documentation
 - **Groq STT Integration** - Ultra-fast Whisper transcription with segment timestamps
 - **Smart Sampling** - Audio-first filtering to optimize cost and performance
-- **Multi-Source Ingestion** - Process videos from manual uploads or Google Drive links
+- **Multi-Source Ingestion** - Process videos from manual uploads or Google Drive (via Native Integration)
 - **Notification Scheduler** - Automated pre-meeting reminders and post-meeting upload nudges
 - **Code Extraction** - Verbatim transcription of visible code, logs, and error messages
 - **Speaker Identification** - Attribute quotes and decisions to specific roles

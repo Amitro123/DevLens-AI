@@ -17,6 +17,7 @@ from app.services.video_pipeline import process_video_pipeline, PipelineError
 from app.services.video_pipeline import process_video_pipeline, PipelineError
 from app.core.observability import get_acontext_client, extract_code_blocks, trace_session
 from app.core.streaming import video_stream_response
+from app.services.native_drive_client import NativeDriveClient
 from fastapi import Request, Header
 
 logger = logging.getLogger(__name__)
@@ -897,6 +898,103 @@ async def stream_video_endpoint(task_id: str, request: Request, range: Optional[
         raise
     except Exception as e:
         logger.error(f"Streaming error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/integrations/drive/files")
+async def list_drive_files():
+    """
+    List video files available in Google Drive via MCP.
+    """
+    try:
+        client = NativeDriveClient()
+        files = await client.list_files()
+        return {"files": files}
+    except Exception as e:
+         logger.error(f"MCP List Error: {e}")
+         # Return empty list or mock instead of 500 to keep UI stable
+         return {"files": [], "error": str(e)}
+
+class DriveImportRequest(BaseModel):
+    file_uri: str
+    file_name: str
+    mode: str = "general_doc"
+
+@router.post("/import/drive")
+async def import_drive_file(request: DriveImportRequest):
+    """
+    Import a file from Drive (MCP) and start processing.
+    """
+    task_id = str(uuid.uuid4())
+    logger.info(f"Starting Drive import for {request.file_name} ({request.file_uri})")
+    
+    # Initialize session
+    from app.services.calendar_service import DraftSession
+    from app.services.storage_service import get_storage_service
+    from datetime import datetime
+    
+    # Create persistent session entry
+    storage = get_storage_service()
+    storage.add_session(task_id, {
+        "title": f"Import: {request.file_name}",
+        "topic": "Drive Import",
+        "status": "downloading", # New status
+        "mode": request.mode,
+        "progress": 0,
+        "last_updated": datetime.now().isoformat()
+    })
+    
+    # In-memory tracking
+    task_results[task_id] = {
+        "status": "downloading",
+        "project_name": request.file_name,
+        "mode": request.mode,
+        "progress": 0,
+        "last_updated": datetime.now()
+    }
+    
+    try:
+        # Prepare paths
+        upload_path = settings.get_upload_path()
+        task_dir = upload_path / task_id
+        task_dir.mkdir(parents=True, exist_ok=True)
+        video_path = task_dir / "video.mp4"
+        
+        # Download via Native Client
+        client = NativeDriveClient()
+        await client.download_file(request.file_uri, video_path)
+        
+        # Update status to processing
+        task_results[task_id]["status"] = "processing"
+        task_results[task_id]["progress"] = 10
+        
+        # Determine prompt config
+        from app.services.prompt_loader import get_prompt_loader
+        prompt_loader = get_prompt_loader()
+        prompt_config = prompt_loader.load_prompt(request.mode)
+        
+        # Run pipeline
+        # Note: In production this should be a background task (Celery)
+        # For MVP we await it (blocking HTTP response, but we have ThreadPool in pipeline)
+        result = await process_video_pipeline(
+            video_path=video_path,
+            task_id=task_id,
+            prompt_config=prompt_config,
+            project_name=request.file_name,
+            context_keywords=["drive-import"],
+            mode=request.mode
+        )
+        
+        return {
+            "task_id": task_id,
+            "status": "completed",
+            "result": result.documentation
+        }
+
+    except Exception as e:
+        logger.error(f"Drive Import Failed: {e}")
+        task_results[task_id]["status"] = "failed"
+        task_results[task_id]["error"] = str(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 

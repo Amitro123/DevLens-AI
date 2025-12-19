@@ -27,14 +27,12 @@ def mock_drive_connector():
 @pytest.fixture
 def mock_video_processor():
     # Patch video processing functions in the new video_pipeline module
-    with patch("app.services.video_pipeline.extract_audio") as mock_audio, \
-         patch("app.services.video_pipeline.extract_frames") as mock_frames, \
+    with patch("app.services.video_pipeline.extract_frames") as mock_frames, \
          patch("app.services.video_pipeline.get_video_duration") as mock_duration:
         
         mock_duration.return_value = 60.0 # 60 seconds
-        mock_audio.return_value = "mock_audio.mp3"
         mock_frames.return_value = ["frame1.jpg", "frame2.jpg"]
-        yield mock_audio, mock_frames, mock_duration
+        yield None, mock_frames, mock_duration
 
 @pytest.fixture
 def mock_ai_generator():
