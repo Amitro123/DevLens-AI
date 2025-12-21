@@ -9,22 +9,32 @@ def dummy_video():
     """Create a dummy video file content"""
     return io.BytesIO(b"dummy mp4 content")
 
-@patch("app.api.routes.process_video_pipeline")
+@patch("app.api.routes.get_devlens_agent")
 @patch("app.api.routes.get_video_duration")
-def test_upload_video(mock_duration, mock_pipeline, client, dummy_video):
+def test_upload_video(mock_duration, mock_agent, client, dummy_video):
     """
     Test 1: Upload a dummy .mp4 file to /api/v1/upload/{id} 
     and assert 200 OK and file existence.
     """
     # Setup mocks
     mock_duration.return_value = 10.0
-    mock_pipeline.return_value = MagicMock(
-        task_id="test_session_123",
-        status="completed",
-        documentation="# Test Doc",
-        mode="general_doc",
-        mode_name="General Documentation"
-    )
+    
+    # Mock the agent and its generate_documentation method
+    from app.services.agent_orchestrator import DevLensResult
+    mock_agent_instance = MagicMock()
+    mock_agent.return_value = mock_agent_instance
+    
+    # Create an async mock for generate_documentation
+    async def mock_generate(*args, **kwargs):
+        return DevLensResult(
+            session_id="test_session_123",
+            status="completed",
+            documentation="# Test Doc",
+            mode="general_doc",
+            mode_name="General Documentation",
+            project_name="Test Project"
+        )
+    mock_agent_instance.generate_documentation = mock_generate
     
     session_id = "test_session_123"
     files = {"file": ("test.mp4", dummy_video, "video/mp4")}

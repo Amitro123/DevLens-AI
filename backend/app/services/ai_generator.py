@@ -8,7 +8,7 @@ import json
 import re
 
 from app.core.config import settings
-from app.core.observability import trace_pipeline
+from app.core.observability import trace_pipeline, record_event, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +239,163 @@ class DocumentationGenerator:
         except Exception as e:
             logger.error(f"Documentation generation failed: {str(e)}")
             raise AIGenerationError(f"Failed to generate documentation: {str(e)}")
+    
+    def generate_segment_doc(
+        self,
+        segment: Dict[str, Any],
+        frame_paths: List[str],
+        prompt_config: 'PromptConfig',
+        project_name: str = "Project",
+        audio_summary: Optional[str] = None
+    ) -> str:
+        """
+        Generate documentation for a single video segment (chunk).
+        
+        Args:
+            segment: Segment descriptor with start, end, index
+            frame_paths: List of frame paths for this segment
+            prompt_config: PromptConfig object with system instructions
+            project_name: Name of the project
+            audio_summary: Optional audio transcript/summary for segment
+        
+        Returns:
+            Generated Markdown for this segment only
+        
+        Raises:
+            AIGenerationError: If generation fails
+        """
+        try:
+            seg_start = segment.get("start", 0)
+            seg_end = segment.get("end", 0)
+            seg_index = segment.get("index", 0)
+            
+            logger.info(f"Generating doc for segment {seg_index} ({seg_start:.1f}s - {seg_end:.1f}s) with {len(frame_paths)} frames")
+            
+            # Build segment-specific prompt
+            user_prompt = f"# Segment {seg_index + 1} Documentation\n\n"
+            user_prompt += f"**Project:** {project_name}\n"
+            user_prompt += f"**Time Range:** {seg_start:.1f}s - {seg_end:.1f}s\n\n"
+            
+            if audio_summary:
+                user_prompt += f"**Audio Summary:**\n{audio_summary}\n\n"
+            
+            user_prompt += f"**Visual Frames:** {len(frame_paths)} screenshots from this segment.\n\n"
+            user_prompt += "Please analyze the frames and document what's shown in this segment.\n"
+            user_prompt += "Focus on the key actions, UI elements, and any important details visible.\n"
+            
+            # Upload frames
+            uploaded_files = []
+            for i, frame_path in enumerate(frame_paths):
+                try:
+                    file = genai.upload_file(frame_path)
+                    uploaded_files.append(file)
+                except Exception as e:
+                    logger.warning(f"Failed to upload frame {frame_path}: {str(e)}")
+            
+            if not uploaded_files:
+                # Return placeholder if no frames uploaded
+                return f"## Segment {seg_index + 1} ({seg_start:.1f}s - {seg_end:.1f}s)\n\n*No frames available for this segment.*\n\n"
+            
+            # Construct prompt with system instruction
+            prompt_parts = [prompt_config.system_instruction, user_prompt]
+            prompt_parts.extend(uploaded_files)
+            
+            # Generate with Flash model for speed (segments are smaller)
+            response = self.model_flash.generate_content(
+                prompt_parts,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.3,
+                    top_p=0.95,
+                    max_output_tokens=4096,
+                )
+            )
+            
+            if not response.text:
+                return f"## Segment {seg_index + 1}\n\n*No content generated.*\n\n"
+            
+            segment_doc = response.text.strip()
+            
+            # Post-process: Replace [Frame X] with actual images
+            def _get_web_url(local_path: str) -> str:
+                try:
+                    rel_path = Path(local_path).relative_to(settings.get_upload_path().resolve())
+                    return f"/uploads/{rel_path.as_posix()}"
+                except ValueError:
+                    try:
+                        rel_path = Path(local_path).relative_to(settings.get_upload_path())
+                        return f"/uploads/{rel_path.as_posix()}"
+                    except ValueError:
+                        return f"/uploads/{Path(local_path).name}"
+
+            def replace_match(match):
+                try:
+                    idx = int(match.group(1)) - 1
+                    if 0 <= idx < len(frame_paths):
+                        url = _get_web_url(frame_paths[idx])
+                        return f"![Frame {idx+1}]({url})"
+                except Exception:
+                    pass
+                return match.group(0)
+
+            segment_doc = re.sub(r'\[Frame (\d+)\]', replace_match, segment_doc)
+            
+            logger.info(f"Generated {len(segment_doc)} characters for segment {seg_index}")
+            
+            return segment_doc
+        
+        except Exception as e:
+            logger.error(f"Segment doc generation failed: {str(e)}")
+            raise AIGenerationError(f"Failed to generate segment documentation: {str(e)}")
+    
+    def merge_segments(
+        self,
+        segment_docs: List[Dict[str, Any]],
+        project_name: str = "Project"
+    ) -> str:
+        """
+        Merge segment documentations into a cohesive final document.
+        
+        Args:
+            segment_docs: List of [{"index": 0, "doc": "...", "start": 0, "end": 30}, ...]
+            project_name: Project name for the header
+        
+        Returns:
+            Merged Markdown documentation
+        """
+        if not segment_docs:
+            return "# Documentation\n\n*No content generated.*\n"
+        
+        # Sort by index
+        sorted_docs = sorted(segment_docs, key=lambda x: x.get("index", 0))
+        
+        # Build merged document
+        merged = f"# {project_name} Documentation\n\n"
+        merged += f"*Generated from {len(sorted_docs)} video segments*\n\n"
+        merged += "---\n\n"
+        
+        for seg in sorted_docs:
+            seg_index = seg.get("index", 0)
+            seg_start = seg.get("start", 0)
+            seg_end = seg.get("end", 0)
+            doc = seg.get("doc", "")
+            
+            # Add segment header
+            merged += f"## Part {seg_index + 1} ({seg_start:.0f}s - {seg_end:.0f}s)\n\n"
+            
+            # Add segment content (strip duplicate headers if any)
+            content = doc.strip()
+            # Remove any leading # headers since we add our own
+            lines = content.split("\n")
+            if lines and lines[0].startswith("#"):
+                lines = lines[1:]
+            content = "\n".join(lines).strip()
+            
+            merged += content + "\n\n"
+            merged += "---\n\n"
+        
+        logger.info(f"Merged {len(sorted_docs)} segments into {len(merged)} character document")
+        
+        return merged
 
 
 # Singleton instance

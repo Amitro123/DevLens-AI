@@ -2,7 +2,7 @@
 
 import cv2
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 import logging
 import subprocess
 import os
@@ -10,7 +10,7 @@ import os
 logger = logging.getLogger(__name__)
 
 # Import tracing decorator
-from app.core.observability import trace_pipeline
+from app.core.observability import trace_pipeline, record_event, EventType
 
 
 class VideoProcessingError(Exception):
@@ -353,4 +353,193 @@ def get_video_duration(video_path: str) -> float:
     
     except Exception as e:
         raise VideoProcessingError(f"Failed to get video duration: {str(e)}")
+
+
+def split_into_segments(video_path: str, segment_duration_sec: int = 30) -> List[Dict]:
+    """
+    Split video into logical segments for chunk-based processing.
+    
+    Args:
+        video_path: Path to the input video file
+        segment_duration_sec: Duration of each segment in seconds (default: 30)
+    
+    Returns:
+        List of segment descriptors: [{"start": 0, "end": 30, "index": 0}, ...]
+    
+    Raises:
+        VideoProcessingError: If video cannot be read
+    """
+    try:
+        duration = get_video_duration(video_path)
+        
+        segments = []
+        current_start = 0.0
+        index = 0
+        
+        while current_start < duration:
+            end = min(current_start + segment_duration_sec, duration)
+            segments.append({
+                "start": current_start,
+                "end": end,
+                "index": index,
+                "duration": end - current_start
+            })
+            current_start = end
+            index += 1
+        
+        logger.info(f"Split video ({duration:.1f}s) into {len(segments)} segments of ~{segment_duration_sec}s each")
+        return segments
+    
+    except Exception as e:
+        raise VideoProcessingError(f"Failed to split video into segments: {str(e)}")
+
+
+def extract_segment_audio(
+    video_path: str,
+    start: float,
+    end: float,
+    output_dir: Optional[str] = None
+) -> str:
+    """
+    Extract audio for a specific time range (segment).
+    
+    Args:
+        video_path: Path to the input video file
+        start: Start time in seconds
+        end: End time in seconds
+        output_dir: Optional directory to save audio file
+    
+    Returns:
+        Path to the extracted audio file (WAV format)
+    
+    Raises:
+        VideoProcessingError: If audio extraction fails
+    """
+    try:
+        video_path_obj = Path(video_path)
+        
+        if output_dir:
+            output_path = Path(output_dir)
+            output_path.mkdir(parents=True, exist_ok=True)
+        else:
+            output_path = video_path_obj.parent
+        
+        # Output audio file path with segment time info
+        audio_filename = f"{video_path_obj.stem}_audio_seg_{start:.0f}_{end:.0f}.wav"
+        audio_path = output_path / audio_filename
+        
+        duration = end - start
+        
+        # Use ffmpeg with -ss (seek) and -t (duration)
+        command = [
+            'ffmpeg',
+            '-ss', str(start),
+            '-i', str(video_path),
+            '-t', str(duration),
+            '-vn',
+            '-acodec', 'pcm_s16le',
+            '-ar', '16000',
+            '-ac', '1',
+            '-y',
+            str(audio_path)
+        ]
+        
+        logger.info(f"Extracting audio segment {start:.1f}s - {end:.1f}s")
+        
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        if not audio_path.exists():
+            raise VideoProcessingError(f"Segment audio file was not created: {audio_path}")
+        
+        return str(audio_path)
+    
+    except subprocess.CalledProcessError as e:
+        raise VideoProcessingError(f"FFmpeg segment audio error: {e.stderr}")
+    except Exception as e:
+        raise VideoProcessingError(f"Failed to extract segment audio: {str(e)}")
+
+
+def extract_segment_frames(
+    video_path: str,
+    start: float,
+    end: float,
+    output_dir: str,
+    interval: int = 5,
+    segment_index: int = 0
+) -> List[str]:
+    """
+    Extract frames only within a specific segment time range.
+    
+    Args:
+        video_path: Path to the input video file
+        start: Start time in seconds
+        end: End time in seconds
+        output_dir: Directory to save extracted frames
+        interval: Extract 1 frame every N seconds (default: 5)
+        segment_index: Segment index for frame naming
+    
+    Returns:
+        List of paths to extracted frame images
+    
+    Raises:
+        VideoProcessingError: If frame extraction fails
+    """
+    frame_paths = []
+    
+    try:
+        video = cv2.VideoCapture(video_path)
+        
+        if not video.isOpened():
+            raise VideoProcessingError(f"Failed to open video file: {video_path}")
+        
+        fps = video.get(cv2.CAP_PROP_FPS)
+        
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        # Calculate timestamps within segment
+        current_time = start
+        frame_count = 0
+        
+        while current_time < end:
+            # Calculate frame number
+            frame_number = int(current_time * fps)
+            
+            # Seek to frame
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            
+            # Read frame
+            ret, frame = video.read()
+            
+            if not ret:
+                logger.warning(f"Failed to read frame at {current_time}s")
+                current_time += interval
+                continue
+            
+            # Save frame with segment and time info
+            frame_filename = f"seg{segment_index:02d}_frame_{frame_count:04d}_t{current_time:.1f}s.jpg"
+            frame_path = output_path / frame_filename
+            
+            cv2.imwrite(str(frame_path), frame)
+            frame_paths.append(str(frame_path))
+            
+            frame_count += 1
+            current_time += interval
+        
+        video.release()
+        
+        logger.info(f"Extracted {len(frame_paths)} frames from segment {segment_index} ({start:.1f}s - {end:.1f}s)")
+        
+        return frame_paths
+    
+    except cv2.error as e:
+        raise VideoProcessingError(f"OpenCV error during segment extraction: {str(e)}")
+    except Exception as e:
+        raise VideoProcessingError(f"Unexpected error during segment frame extraction: {str(e)}")
+
 

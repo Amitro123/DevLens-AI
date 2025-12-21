@@ -66,6 +66,14 @@ To build an automated full-stack pipeline that accepts video inputs and outputs 
 │  │  - Inject meeting details and Visual QC rules        │  │
 │  │  - Generate Markdown from pristine high-res frames   │  │
 │  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  5. Chunk-based Processing (Optional)                │  │
+│  │  - Split video into 30s segments                     │  │
+│  │  - Process each segment independently                │  │
+│  │  - Merge segment docs into final document            │  │
+│  │  - Granular progress: "Segment 2/5"                  │  │
+│  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,6 +103,60 @@ The pipeline is instrumented with **Acontext** for full observability and debugg
 - `backend/app/core/observability.py` - AcontextClient and @trace_pipeline decorator
 - `docker-compose.yml` - Acontext + Redis infrastructure
 - `backend/app/core/config.py` - Settings (ACONTEXT_URL, ACONTEXT_ENABLED)
+
+## 2.2 SessionManager: Pipeline Orchestrator
+
+The `SessionManager` is the **single authoritative source** for all session state, replacing fragmented state previously spread across `task_results`, `CalendarWatcher`, and `StorageService`.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SessionManager API                        │
+│                                                             │
+│  create_session(id, metadata)   → Creates draft session     │
+│  start_processing(id)           → Initializes progress      │
+│  update_progress(id, stage, %)  → Updates 0-100%            │
+│  complete(id, path, doc)        → Finalizes with docs       │
+│  fail(id, error)                → Marks failed              │
+│  get_status(id)                 → Returns status dict       │
+│  get_active_session()           → Finds active session      │
+│                                                             │
+│  Features:                                                  │
+│  • Zombie cleanup (auto-expires stale sessions)             │
+│  • Disk persistence via StorageService                      │
+│  • In-memory cache for fast lookups                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Files:**
+- `backend/app/services/session_manager.py` - SessionManager class
+- `backend/app/api/routes.py` - Delegates to SessionManager
+
+## 2.3 DevLensAgent: Single Orchestrator
+
+The `DevLensAgent` is the **main orchestrator** for video documentation generation, coordinating VideoProcessor, AIGenerator, and SessionManager.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DevLensAgent API                         │
+│                                                             │
+│  generate_documentation(                                    │
+│      session_id,                                            │
+│      video_path,                                            │
+│      options: DevLensAgentOptions                           │
+│  ) → DevLensResult                                          │
+│                                                             │
+│  Options:                                                   │
+│  • mode - Prompt mode (bug_report, feature_spec, etc.)      │
+│  • language - Output language                               │
+│  • project_name - Project title                             │
+│  • calendar_event_id - Context enrichment                   │
+│  • use_segmented_pipeline - Enable chunk processing         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Files:**
+- `backend/app/services/agent_orchestrator.py` - DevLensAgent class
+- `backend/app/api/routes.py` - Uses agent for /upload endpoints
 
 ## 3. API Endpoints (FastAPI)
 

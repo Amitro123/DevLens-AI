@@ -12,11 +12,17 @@ import logging
 from fastapi.concurrency import run_in_threadpool
 
 from app.core.config import settings
-from app.services.video_processor import extract_frames, get_video_duration, VideoProcessingError
+from app.services.video_processor import (
+    extract_frames,
+    get_video_duration,
+    VideoProcessingError,
+    split_into_segments,
+    extract_segment_frames
+)
 from app.services.ai_generator import get_generator, AIGenerationError
 from app.services.prompt_loader import PromptConfig
 from app.services.storage_service import get_storage_service
-from app.core.observability import get_acontext_client, extract_code_blocks
+from app.core.observability import get_acontext_client, extract_code_blocks, record_event, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +98,12 @@ async def process_video_pipeline(
                 f"({settings.max_video_length // 60} minutes)"
             )
         logger.info(f"Video duration: {duration:.2f}s")
+        
+        # Record video upload event
+        record_event(task_id, EventType.VIDEO_UPLOADED, {
+            "filename": video_path.name,
+            "duration_sec": round(duration, 2)
+        })
     except VideoProcessingError as e:
         raise PipelineError(f"Invalid video file: {str(e)}")
     
@@ -161,6 +173,12 @@ async def process_video_pipeline(
             timestamps
         )
         logger.info(f"Extracted {len(frame_paths)} high-quality frames")
+        
+        # Record frames sampled event
+        record_event(task_id, EventType.FRAMES_SAMPLED, {
+            "count": len(frame_paths),
+            "mode": "smart" if timestamps else "regular"
+        })
     except VideoProcessingError as e:
         raise PipelineError(f"Frame extraction failed: {str(e)}")
     
@@ -168,6 +186,12 @@ async def process_video_pipeline(
     try:
         if progress_callback:
             await progress_callback(70, "Generating documentation with Gemini...")
+        
+        # Record doc generation start
+        record_event(task_id, EventType.DOC_GENERATION_STARTED, {
+            "frame_count": len(frame_paths),
+            "project_name": project_name
+        })
         
         # Wrapped in run_in_threadpool to prevent blocking the event loop (CR_FINDINGS 1.1)
         documentation = await run_in_threadpool(
@@ -178,6 +202,11 @@ async def process_video_pipeline(
             project_name
         )
         logger.info(f"Generated documentation for task {task_id}")
+        
+        # Record doc generation complete
+        record_event(task_id, EventType.DOC_GENERATION_COMPLETED, {
+            "doc_length": len(documentation)
+        })
     except AIGenerationError as e:
         raise PipelineError(f"AI generation failed: {str(e)}")
     
@@ -244,3 +273,192 @@ def _store_artifacts(task_id: str, documentation: str, project_name: str) -> Non
     except Exception as e:
         # Don't fail the request if artifact storage fails
         logger.warning(f"Failed to store artifacts in Acontext: {e}")
+
+
+async def process_video_pipeline_segmented(
+    video_path: Path,
+    task_id: str,
+    prompt_config: PromptConfig,
+    project_name: str,
+    segment_duration_sec: int = 30,
+    mode: Optional[str] = None,
+    progress_callback: Optional[Callable[[int, str], Awaitable[None]]] = None
+) -> VideoPipelineResult:
+    """
+    Segmented video processing pipeline - processes video in chunks.
+    
+    Similar to realtime voice agent audio chunks, this processes the video
+    in logical segments for:
+    - More granular progress reporting
+    - Smaller AI context windows per segment
+    - Potential for streaming/incremental output
+    
+    Args:
+        video_path: Path to the video file
+        task_id: Unique task/session identifier
+        prompt_config: Loaded prompt configuration
+        project_name: Name of the project being documented
+        segment_duration_sec: Duration of each segment in seconds (default: 30)
+        mode: Documentation mode string (for storage)
+        progress_callback: Optional async callback for progress updates
+    
+    Returns:
+        VideoPipelineResult with generated documentation
+    
+    Raises:
+        PipelineError: If any step in the pipeline fails
+    """
+    task_dir = video_path.parent
+    
+    # 1. Validate video duration
+    try:
+        duration = await run_in_threadpool(get_video_duration, str(video_path))
+        if duration > settings.max_video_length:
+            raise PipelineError(
+                f"Video too long. Maximum: {settings.max_video_length}s "
+                f"({settings.max_video_length // 60} minutes)"
+            )
+        logger.info(f"Video duration: {duration:.2f}s")
+        
+        # Record video upload event
+        record_event(task_id, EventType.VIDEO_UPLOADED, {
+            "filename": video_path.name,
+            "duration_sec": round(duration, 2),
+            "mode": "segmented"
+        })
+    except VideoProcessingError as e:
+        raise PipelineError(f"Invalid video file: {str(e)}")
+    
+    if progress_callback:
+        await progress_callback(5, "Analyzing video structure...")
+    
+    # 2. Split into segments
+    try:
+        segments = await run_in_threadpool(
+            split_into_segments,
+            str(video_path),
+            segment_duration_sec
+        )
+        logger.info(f"Split video into {len(segments)} segments")
+        
+        # Record segment creation event
+        record_event(task_id, EventType.SEGMENT_CREATED, {
+            "segment_count": len(segments),
+            "segment_duration_sec": segment_duration_sec
+        })
+    except VideoProcessingError as e:
+        raise PipelineError(f"Failed to split video: {str(e)}")
+    
+    if progress_callback:
+        await progress_callback(10, f"Processing {len(segments)} segments...")
+    
+    # 3. Process each segment
+    generator = get_generator()
+    segment_docs = []
+    frames_dir = task_dir / "frames"
+    
+    # Progress allocation: 10-85% for segment processing
+    progress_per_segment = 75 / max(len(segments), 1)
+    
+    for seg in segments:
+        seg_index = seg["index"]
+        seg_start = seg["start"]
+        seg_end = seg["end"]
+        
+        # Update progress for this segment
+        current_progress = 10 + int(progress_per_segment * seg_index)
+        if progress_callback:
+            await progress_callback(
+                current_progress,
+                f"Processing segment {seg_index + 1}/{len(segments)} ({seg_start:.0f}s - {seg_end:.0f}s)"
+            )
+        
+        # 3a. Extract frames for this segment
+        try:
+            segment_frames_dir = frames_dir / f"seg_{seg_index:02d}"
+            frame_paths = await run_in_threadpool(
+                extract_segment_frames,
+                str(video_path),
+                seg_start,
+                seg_end,
+                str(segment_frames_dir),
+                settings.frame_interval,
+                seg_index
+            )
+            logger.info(f"Segment {seg_index}: extracted {len(frame_paths)} frames")
+        except VideoProcessingError as e:
+            logger.warning(f"Segment {seg_index} frame extraction failed: {e}")
+            frame_paths = []
+        
+        # 3b. Generate documentation for this segment
+        if frame_paths:
+            try:
+                segment_doc = await run_in_threadpool(
+                    generator.generate_segment_doc,
+                    seg,
+                    frame_paths,
+                    prompt_config,
+                    project_name,
+                    None  # audio_summary - future enhancement
+                )
+            except AIGenerationError as e:
+                logger.warning(f"Segment {seg_index} doc generation failed: {e}")
+                segment_doc = f"*Segment {seg_index + 1} processing failed.*\n"
+        else:
+            segment_doc = f"*No frames extracted for segment {seg_index + 1}.*\n"
+        
+        segment_docs.append({
+            "index": seg_index,
+            "start": seg_start,
+            "end": seg_end,
+            "doc": segment_doc
+        })
+        
+        # Record segment processed event
+        record_event(task_id, EventType.SEGMENT_PROCESSED, {
+            "segment_index": seg_index,
+            "frame_count": len(frame_paths),
+            "doc_length": len(segment_doc)
+        })
+    
+    # 4. Merge segments
+    if progress_callback:
+        await progress_callback(85, "Merging segment documentation...")
+    
+    try:
+        documentation = generator.merge_segments(segment_docs, project_name)
+        logger.info(f"Merged {len(segment_docs)} segments into final document")
+    except Exception as e:
+        raise PipelineError(f"Failed to merge segments: {str(e)}")
+    
+    # 5. Store artifacts
+    if progress_callback:
+        await progress_callback(90, "Storing artifacts...")
+    
+    _store_artifacts(task_id, documentation, project_name)
+    
+    # 6. Persist to history
+    storage = get_storage_service()
+    selected_mode = mode or "general_doc"
+    storage.add_session(task_id, {
+        "title": project_name,
+        "topic": prompt_config.name,
+        "status": "completed",
+        "documentation": documentation,
+        "mode": selected_mode,
+        "mode_name": prompt_config.name,
+        "segments_processed": len(segments)
+    })
+    
+    if progress_callback:
+        await progress_callback(100, "Complete!")
+    
+    return VideoPipelineResult(
+        task_id=task_id,
+        documentation=documentation,
+        status="completed",
+        mode=selected_mode,
+        mode_name=prompt_config.name,
+        project_name=project_name
+    )
+

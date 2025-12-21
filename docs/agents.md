@@ -16,6 +16,9 @@ The system now includes:
 - **Export Integrations** - Send docs to Notion, Jira, or clipboard
 - **Multi-Department Personas** - Specialized modes for R&D, HR, and Finance teams
 - **Acontext Flight Recorder** - Full pipeline observability with trace logging and artifact storage
+- **Chunk-based Processing** - Process videos in 30s segments with per-segment progress reporting
+- **Session Timeline Events** - Structured JSONL event logging for pipeline traceability
+- **DevLensAgent Orchestrator** - Single orchestrator coordinating VideoProcessor, AIGenerator, and StorageService
 
 ## Prompt Registry Architecture
 

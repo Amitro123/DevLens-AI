@@ -34,6 +34,9 @@ In modern engineering, knowledge is often lost in video calls. DevLens acts as a
 * **🛡️ Visual Quality Control** - AI filters out blank screens, spinners, and blurred transitions
 * **🎬 Click-to-Seek Navigation** - Click any documentation image to jump to that moment in the source video
 * **🧪 Integration Test Suite** - Comprehensive backend tests for upload, status, and history
+* **📦 Chunk-based Processing** - Process videos in 30s segments for granular progress and smaller AI contexts
+* **📊 Session Timeline Events** - Structured event logging (JSONL) for full pipeline observability
+* **🤖 DevLensAgent Orchestrator** - Single-point coordination for all video processing tools
 
 ## 💡 Why DevLens?
 
@@ -99,6 +102,19 @@ graph TB
 - ⚡ **3x Faster** - Skip non-technical content
 - 🎯 **Higher Quality** - Focus on technical discussions
 - 💻 **No Code Hallucinations** - Verbatim extraction from screen
+
+## 📦 Chunk-based Processing
+
+For longer videos (2+ minutes), the pipeline can process video in **30-second segments**:
+
+1. **Split** - Divide video into logical chunks
+2. **Process Each Segment** - Extract frames and generate docs per segment
+3. **Merge** - Combine segment docs into cohesive final document
+
+**Benefits:**
+- 📊 **Granular Progress** - "Processing segment 2/5" instead of generic %
+- 🧠 **Smaller AI Context** - Each segment processed independently
+- 🔄 **Streaming Ready** - Architecture supports future incremental output
 
 ## 🛠️ Tech Stack
 

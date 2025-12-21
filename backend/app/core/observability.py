@@ -418,3 +418,121 @@ def extract_code_blocks(markdown: str) -> List[Dict[str, str]]:
         {"lang": lang or "txt", "code": code.strip()}
         for lang, code in matches
     ]
+
+
+# ============================================================================
+# Session Timeline Events
+# ============================================================================
+
+class EventType:
+    """Constants for session timeline event types"""
+    VIDEO_UPLOADED = "video_uploaded"
+    AUDIO_EXTRACTED = "audio_extracted"
+    FRAMES_SAMPLED = "frames_sampled"
+    SEGMENT_CREATED = "segment_created"
+    SEGMENT_PROCESSED = "segment_processed"
+    DOC_GENERATION_STARTED = "doc_generation_started"
+    DOC_GENERATION_COMPLETED = "doc_generation_completed"
+    STATUS_CHANGED = "status_changed"
+    SESSION_COMPLETED = "session_completed"
+    SESSION_FAILED = "session_failed"
+    EXPORT_TRIGGERED = "export_triggered"
+
+
+def get_timeline_path(session_id: str) -> str:
+    """
+    Get the path to the timeline JSONL file for a session.
+    
+    Args:
+        session_id: The session ID
+        
+    Returns:
+        Absolute path to the timeline file
+    """
+    from pathlib import Path
+    
+    timelines_dir = Path("data/timelines")
+    timelines_dir.mkdir(parents=True, exist_ok=True)
+    
+    return str(timelines_dir / f"{session_id}.jsonl")
+
+
+def record_event(
+    session_id: str,
+    event_type: str,
+    payload: Optional[Dict[str, Any]] = None
+) -> None:
+    """
+    Record a structured timeline event for a session.
+    
+    Writes to:
+    1. Console log (INFO level)
+    2. JSONL file at data/timelines/{session_id}.jsonl
+    3. Acontext (if enabled)
+    
+    Args:
+        session_id: The session ID this event belongs to
+        event_type: Type of event (use EventType constants)
+        payload: Optional event-specific data
+        
+    Example:
+        record_event("abc123", EventType.VIDEO_UPLOADED, {"filename": "demo.mp4"})
+    """
+    timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    
+    event = {
+        "timestamp": timestamp,
+        "session_id": session_id,
+        "event": event_type,
+        "payload": payload or {}
+    }
+    
+    # 1. Console log
+    logger.info(f"[TIMELINE] {session_id} | {event_type} | {json.dumps(payload or {})}")
+    
+    # 2. Write to JSONL file
+    try:
+        timeline_path = get_timeline_path(session_id)
+        with open(timeline_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event) + "\n")
+    except Exception as e:
+        logger.warning(f"Failed to write timeline event to file: {e}")
+    
+    # 3. Send to Acontext (if enabled)
+    try:
+        client = get_acontext_client()
+        if client.is_enabled:
+            client.send_message({
+                "type": "timeline_event",
+                **event
+            })
+    except Exception as e:
+        logger.debug(f"Failed to send timeline event to Acontext: {e}")
+
+
+def get_session_timeline(session_id: str) -> List[Dict[str, Any]]:
+    """
+    Read all timeline events for a session.
+    
+    Args:
+        session_id: The session ID
+        
+    Returns:
+        List of event dictionaries
+    """
+    timeline_path = get_timeline_path(session_id)
+    events = []
+    
+    try:
+        from pathlib import Path
+        if Path(timeline_path).exists():
+            with open(timeline_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        events.append(json.loads(line))
+    except Exception as e:
+        logger.warning(f"Failed to read timeline for {session_id}: {e}")
+    
+    return events
+

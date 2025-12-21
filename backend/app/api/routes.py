@@ -14,10 +14,11 @@ from app.services.ai_generator import get_generator, AIGenerationError
 from app.services.prompt_loader import get_prompt_loader, PromptLoadError
 from app.services.storage_service import get_storage_service
 from app.services.video_pipeline import process_video_pipeline, PipelineError
-from app.services.video_pipeline import process_video_pipeline, PipelineError
 from app.core.observability import get_acontext_client, extract_code_blocks, trace_session
 from app.core.streaming import video_stream_response
 from app.services.native_drive_client import NativeDriveClient
+from app.services.session_manager import get_session_manager, SessionStatus
+from app.services.agent_orchestrator import get_devlens_agent, DevLensAgentOptions, DevLensResult
 from fastapi import Request, Header
 
 logger = logging.getLogger(__name__)
@@ -75,23 +76,32 @@ class ActiveSessionResponse(BaseModel):
 async def get_active_session():
     """
     Check for any active processing or uploading session.
-    If multiple, returns the latest one.
+    Delegates to centralized SessionManager.
     """
-    # 1. Check draft sessions (Calendar/Drive flows)
+    session_mgr = get_session_manager()
+    active = session_mgr.get_active_session()
+    
+    if active:
+        return ActiveSessionResponse(
+            session_id=active["session_id"],
+            status=active["status"],
+            title=active["title"],
+            mode=active.get("mode"),
+            progress=active.get("progress", 0)
+        )
+    
+    # Fallback: Check calendar sessions for backwards compatibility
     try:
         from app.services.calendar_service import get_calendar_watcher
         calendar = get_calendar_watcher()
         drafts = calendar.get_draft_sessions()
         
-        # Latest active status (DraftSession handles processing, downloading_from_drive)
         active_statuses = ["processing", "downloading_from_drive", "uploading"]
-        
         for s in drafts:
             if s.status in active_statuses:
                 logger.info(f"Active session found in calendar: {s.session_id}")
-                progress = 0
-                if s.session_id in task_results:
-                    progress = task_results[s.session_id].get("progress", 0)
+                status_info = session_mgr.get_status(s.session_id)
+                progress = status_info.get("progress", 0) if status_info else 0
                 
                 return ActiveSessionResponse(
                     session_id=s.session_id,
@@ -100,73 +110,9 @@ async def get_active_session():
                     mode=s.suggested_mode,
                     progress=progress
                 )
-
     except Exception as e:
-        logger.error(f"Error checking active calendar sessions: {e}")
-
-    # 2. Check task_results (Manual upload flow - In Memory)
-    from datetime import datetime, timedelta
-    now = datetime.now()
+        logger.error(f"Error checking calendar sessions: {e}")
     
-    # Create key list to avoid runtime error during modification
-    for task_id in list(task_results.keys()):
-        result = task_results[task_id]
-        if result.get("status") in ["processing", "uploading"]:
-            # Check for staleness
-            last_updated = result.get("last_updated", now)
-            if (now - last_updated).total_seconds() > STALE_TIMEOUT_SECONDS:
-                logger.warning(f"Zombie session found in memory: {task_id}. Expiring.")
-                task_results[task_id]["status"] = "failed"
-                task_results[task_id]["error"] = "Session timed out (Zombie)"
-                continue
-
-            logger.info(f"Active session found in task_results: {task_id}")
-            return ActiveSessionResponse(
-                session_id=task_id,
-                status=result["status"],
-                title=result.get("project_name", "Untitled Project"),
-                mode=result.get("mode"),
-                progress=result.get("progress", 0)
-            )
-
-    # 3. Check persistent storage (For recovery after restart active session)
-    try:
-        from app.services.storage_service import get_storage_service
-        storage = get_storage_service()
-        history = storage.get_history()
-        
-        # Check for latest processing session
-        for session in history:
-            if session.get("status") in ["processing", "uploading"]:
-                # Check timestamps (parsing ISO format)
-                # Ensure we handle potential parsing errors
-                try:
-                    ts_str = session.get("timestamp")
-                    if ts_str:
-                         session_ts = datetime.fromisoformat(ts_str)
-                         if (now - session_ts).total_seconds() > STALE_TIMEOUT_SECONDS:
-                             logger.warning(f"Zombie session found in persistence: {session.get('id')}. Marking failed.")
-                             # Update storage to failed to prevent recurring checks
-                             storage.add_session(session.get("id"), {
-                                 **session,
-                                 "status": "failed",
-                                 "error": "Session timed out (Zombie)"
-                             })
-                             continue
-                except Exception as ex:
-                    logger.warning(f"Failed to parse timestamp for session {session.get('id')}: {ex}")
-
-                logger.info(f"Active session found in persistent storage: {session.get('id')}")
-                return ActiveSessionResponse(
-                    session_id=session.get("id"),
-                    status=session.get("status"),
-                    title=session.get("title", "Untitled Project"),
-                    mode=session.get("mode"),
-                    progress=session.get("progress", 0)
-                )
-    except Exception as e:
-        logger.error(f"Error checking persistent storage for active session: {e}")
-
     return None
 
 
@@ -194,36 +140,15 @@ async def upload_video(
     """
     task_id = str(uuid.uuid4())
     
-    from datetime import datetime
-    
-    # Initialize processing state for recovery/observability
-    task_results[task_id] = {
-        "status": "processing",
+    # Initialize session via SessionManager
+    session_mgr = get_session_manager()
+    session_mgr.create_session(task_id, {
         "project_name": project_name,
-        "mode": mode,
-        "progress": 0,
-        "last_updated": datetime.now()
-    }
-    
-    async def update_progress(progress: int, message: str) -> None:
-        """Callback to update progress in memory"""
-        if task_id in task_results:
-            task_results[task_id]["progress"] = progress
-            task_results[task_id]["status_message"] = message
-            task_results[task_id]["last_updated"] = datetime.now()
-
+        "mode": mode
+    })
+    session_mgr.start_processing(task_id)
     
     try:
-        # Load prompt configuration
-        from app.services.prompt_loader import get_prompt_loader, PromptLoadError
-        
-        try:
-            prompt_loader = get_prompt_loader()
-            prompt_config = prompt_loader.load_prompt(mode)
-            logger.info(f"Loaded prompt mode: {mode} - {prompt_config.name}")
-        except PromptLoadError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        
         # Validate file type
         allowed_extensions = {".mp4", ".mov", ".avi", ".webm"}
         file_ext = Path(file.filename).suffix.lower()
@@ -247,83 +172,29 @@ async def upload_video(
         
         logger.info(f"Saved video for task {task_id}: {video_path}")
         
-        # Validate video duration
-        try:
-            duration = await run_in_threadpool(get_video_duration, str(video_path))
-            if duration > settings.max_video_length:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Video too long. Maximum: {settings.max_video_length}s ({settings.max_video_length // 60} minutes)"
-                )
-            logger.info(f"Video duration: {duration:.2f}s")
-        except VideoProcessingError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid video file: {str(e)}")
+        # Use DevLensAgent for orchestration
+        agent = get_devlens_agent()
+        options = DevLensAgentOptions(
+            mode=mode,
+            language=language,
+            project_name=project_name
+        )
         
-        # Extract frames
-        frames_dir = task_dir / "frames"
         try:
-            frame_paths = await run_in_threadpool(
-                extract_frames,
-                str(video_path),
-                str(frames_dir),
-                settings.frame_interval
+            result = await agent.generate_documentation(
+                session_id=task_id,
+                video_path=video_path,
+                options=options
             )
-            logger.info(f"Extracted {len(frame_paths)} frames")
-        except VideoProcessingError as e:
-            raise HTTPException(status_code=500, detail=f"Frame extraction failed: {str(e)}")
-        
-        # PERSIST "PROCESSING" STATUS BEFORE PIPELINE
-        # This ensures that if the server crashes/restarts, we know we were processing
-        storage = get_storage_service()
-        storage.add_session(task_id, {
-            "title": project_name,
-            "topic": prompt_config.name,
-            "status": "processing",
-            "mode": mode,
-            "mode_name": prompt_config.name
-        })
-        
-        # Generate documentation with dynamic prompt
-        try:
-            generator = get_generator()
-            documentation = generator.generate_documentation(
-                frame_paths=frame_paths,
-                prompt_config=prompt_config,
-                context="",  # TODO: Add RAG context retrieval
-                project_name=project_name
-            )
-            logger.info(f"Generated documentation for task {task_id}")
-        except AIGenerationError as e:
-            raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
-        
-        # Store result
-        task_results[task_id] = {
-            "status": "completed",
-            "documentation": documentation,
-            "project_name": project_name,
-            "language": language,
-            "mode": mode,
-            "mode_name": prompt_config.name
-        }
-        
-        # Store artifacts in Acontext (Flight Recorder)
-        _store_artifacts(task_id, documentation, project_name)
-        
-        # PERSIST TO HISTORY
-        storage = get_storage_service()
-        storage.add_session(task_id, {
-            "title": project_name,
-            "topic": prompt_config.name,
-            "status": "completed",
-            "documentation": documentation,
-            "mode": mode,
-            "mode_name": prompt_config.name
-        })
+        except PipelineError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        except PromptLoadError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         
         return UploadResponse(
-            task_id=task_id,
-            status="completed",
-            result=documentation
+            task_id=result.session_id,
+            status=result.status,
+            result=result.documentation
         )
     
     except HTTPException:
@@ -337,23 +208,23 @@ async def upload_video(
 async def get_status(task_id: str):
     """
     Get the status of a processing task.
-    Supports both manual uploads and calendar sessions.
+    Delegates to centralized SessionManager.
     """
-    # 1. Check manual task results
-    if task_id in task_results:
-        result = task_results[task_id]
+    session_mgr = get_session_manager()
+    status_info = session_mgr.get_status(task_id)
+    
+    if status_info:
         return StatusResponse(
-            status=result["status"],
-            progress=result.get("progress", 100 if result["status"] == "completed" else 0)
+            status=status_info["status"],
+            progress=status_info["progress"]
         )
     
-    # 2. Check calendar draft sessions
+    # Fallback: Check calendar sessions for backwards compatibility
     try:
         from app.services.calendar_service import get_calendar_watcher
         calendar = get_calendar_watcher()
         session = calendar.get_session(task_id)
         if session:
-            # Map statuses to progress
             progress = 0
             if session.status == "completed": progress = 100
             elif session.status == "processing": progress = 60
@@ -708,33 +579,33 @@ async def upload_to_session(
         
         logger.info(f"Saved video for session {session_id}: {video_path}")
 
-        # PERSIST "PROCESSING" STATUS BEFORE PIPELINE
-        # This ensures recovery works even if we crash during processing
-        from app.services.storage_service import get_storage_service
-        storage = get_storage_service()
-        storage.add_session(session_id, {
+        # Initialize session in SessionManager
+        session_mgr = get_session_manager()
+        session_mgr.create_session(session_id, {
             "title": session.title,
-            "topic": prompt_config.name,
-            "status": "processing",
-            "mode": selected_mode,
-            "mode_name": prompt_config.name
+            "mode": selected_mode
         })
+        session_mgr.start_processing(session_id)
         
-        # Use shared processing pipeline (CR_FINDINGS 3.1 refactor)
+        # Use DevLensAgent for orchestration
+        agent = get_devlens_agent()
+        options = DevLensAgentOptions(
+            mode=selected_mode,
+            project_name=session.title,
+            calendar_event_id=session_id  # Pass event ID for context enrichment
+        )
+        
         try:
-            result = await process_video_pipeline(
+            result = await agent.generate_documentation(
+                session_id=session_id,
                 video_path=video_path,
-                task_id=session_id,
-                prompt_config=prompt_config,
-                project_name=session.title,
-                context_keywords=session.context_keywords,
-                mode=selected_mode
+                options=options
             )
         except PipelineError as e:
             calendar.update_session_status(session_id, "failed", {"error": str(e)})
             raise HTTPException(status_code=500, detail=str(e))
         
-        # Update session status
+        # Update calendar session for backwards compatibility
         calendar.update_session_status(
             session_id,
             "completed",
@@ -746,7 +617,7 @@ async def upload_to_session(
         )
         
         return UploadResponse(
-            task_id=result.task_id,
+            task_id=result.session_id,
             status=result.status,
             result=result.documentation
         )
@@ -786,17 +657,12 @@ async def submit_feedback(session_id: str, feedback: FeedbackRequest):
 async def cancel_session(session_id: str):
     """
     Cancel an active processing session.
+    Delegates to SessionManager.
     """
     logger.info(f"Requesting cancellation for session {session_id}")
     
-    cancelled = False
-    
-    # 1. Check in-memory tasks
-    if session_id in task_results:
-        task_results[session_id]["status"] = "cancelled"
-        task_results[session_id]["status_message"] = "Cancelled by user"
-        logger.info(f"Cancelled in-memory task {session_id}")
-        cancelled = True
+    session_mgr = get_session_manager()
+    cancelled = session_mgr.cancel(session_id)
         
     # 2. Check Calendar/Draft sessions
     from app.services.calendar_service import get_calendar_watcher
