@@ -465,6 +465,27 @@ pydantic==2.5.0
 - Sanitize file names
 - Store in isolated upload directory
 
+### 3.1 Session Management
+- **Dashboard**:
+  - [x] Drag-and-drop video upload
+  - [x] Mode selection (Bug Report, Feature Spec, etc.)
+  - [x] Processing progress bar with stages (Transcribing → Analyzing → Generating)
+  - [x] **New**: Calendar Integration (Upcoming Meetings view)
+  - [x] **New**: Active Session Recovery (Restore progress on refresh)
+
+- **History**:
+  - [x] List past sessions with status badges & relative time
+  - [x] **New**: Export options (Markdown, Notion, Jira, Clipboard)
+
+### 3.2 Documentation View
+- **Interactive Timeline**:
+  - [x] Video player with seek controls
+  - [x] Clickable key frame thumbnails (jump to timestamp)
+  - [x] Transcript segment navigation
+- **Content**:
+  - [x] Markdown rendering with code highlighting
+  - [x] Copy to clipboard functionality
+
 ### Audio File Handling
 - Temporary audio files cleaned up after processing
 - Audio stored in same directory as video

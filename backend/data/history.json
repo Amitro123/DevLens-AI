@@ -1,6 +1,15 @@
 {
   "sessions": [
     {
+      "id": "0c3331dc-3b77-4ee3-a30d-c693baa37227",
+      "timestamp": "2025-12-31T18:45:53.888300",
+      "title": "Untitled Project",
+      "topic": "Technical Documentation Writer",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": "Technical Documentation Writer"
+    },
+    {
       "id": "mtg_3",
       "timestamp": "2025-12-22T12:01:30.372048",
       "title": "Architecture Deep Dive",

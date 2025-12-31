@@ -107,7 +107,7 @@ flowchart LR
 - ⚡ **~10x Faster STT** - Local Whisper vs. cloud transcription
 - 📊 **Full Traceability** - Every decision logged as a Turn
 - 💰 **Cost Efficient** - Only final doc uses expensive Pro model
-- � **Fallback Ready** - Automatic Gemini fallback if local STT unavailable
+-  **Fallback Ready** - Automatic Gemini fallback if local STT unavailable
 
 ## 📦 Chunk-based Processing
 
@@ -122,19 +122,20 @@ For longer videos (2+ minutes), the pipeline can process video in **30-second se
 - 🧠 **Smaller AI Context** - Each segment processed independently
 - 🔄 **Streaming Ready** - Architecture supports future incremental output
 
-## 🛠️ Tech Stack
+## 🛠 Tech Stack
 
-**Backend:**
-- Python 3.10+
-- FastAPI
-- Google Gemini 1.5 Pro & Flash
-- OpenCV + FFmpeg
+- **Frontend**: React 18, TypeScript, Vite, TailwindCSS, Framer Motion
+- **Backend**: FastAPI, Python 3.12
+- **AI/ML**: Google Gemini Pro 1.5, FFmpeg
+- **Storage**: Local filesystem (JSON/Markdown)
 - Celery + Redis (async workers)
 
-**Frontend:**
-- React 18
-- Vite
-- Tailwind CSS
+**Frontend:** *(New Lovable-generated UI v2.0)*
+- React 18 + **TypeScript**
+- Vite 5
+- Tailwind CSS + **shadcn/ui** components
+- **React Query** for data fetching
+- **Framer Motion** animations
 - Axios
 
 ## 📦 Installation
