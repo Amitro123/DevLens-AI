@@ -19,7 +19,7 @@ def process_video_task(task_id: str, video_path: str, project_name: str = "Proje
     
     Pipeline:
     1. Extract frames from video using OpenCV
-    2. Extract audio track using ffmpeg/moviepy
+    2. Extract audio track using ffmpeg
     3. Query ChromaDB for organizational context (RAG)
     4. Send frames + audio + context to Gemini 1.5 Pro
     5. Generate Markdown documentation

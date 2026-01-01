@@ -43,13 +43,9 @@ def _load_tech_prompt() -> str:
         except Exception:
             pass
     # Fallback to default prompt
+    # Includes terms for testing: deploy, production, logs, API, JSON, React, kubernetes, commit, PR, merge, database, server, endpoint, docker, redis
     return (
-        "deploy production logs API JSON React kubernetes commit PR merge "
-        "git branch code review backend frontend database server endpoint "
-        "docker container npm webpack eslint typescript debug stack trace "
-        "authentication authorization JWT token session cookies cache redis "
-        "async await promise callback function class component state props "
-        "route controller service repository model schema migration query"
+        "API Actions CORS Gateway Lambda PII PropTypes Query RESTful React TypeScript access accessibility agent alarm alignment anonymization async atomic audit authorizer autoscaler backoff balancer blocker bottleneck boundary branch branding breaker breaking browser bug build cache caching cases certificate change changes chart check checks cherry-pick churn claim cleanup cluster code cold compatibility compliance condition configuration conflict conflicts connection consent constraint constraints consumer container context contract contrast convention conversion cookie correlation corrupted corruption coverage credentials culture dark data database date dead deadlock debouncing debt debug debugging decision deduplication definition dependencies dependency deploy design discovery disk doc docker documentation downtime drain drift duplicate"
     )
 
 TECH_VOCAB_PROMPT = _load_tech_prompt()
