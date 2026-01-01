@@ -27,8 +27,8 @@ class DocumentationGenerator:
             genai.configure(api_key=settings.gemini_api_key)
             
             # Use configurable model names
-            pro_model = getattr(settings, 'doc_model_pro_name', 'gemini-2.5-flash-lite')
-            flash_model = getattr(settings, 'doc_model_flash_name', 'gemini-2.5-flash-lite')
+            pro_model = getattr(settings, 'doc_model_pro_name', 'gemini-2.5-pro')
+            flash_model = getattr(settings, 'doc_model_flash_name', 'gemini-2.5-flash')
             
             self.model_pro = genai.GenerativeModel(pro_model)
             self.model_flash = genai.GenerativeModel(flash_model)
