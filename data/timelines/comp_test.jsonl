@@ -14,3 +14,9 @@
 {"timestamp": "2025-12-31T13:28:07Z", "session_id": "comp_test", "event": "session_completed", "payload": {"result_path": "/path/to/doc.md"}}
 {"timestamp": "2025-12-31T15:54:14Z", "session_id": "comp_test", "event": "status_changed", "payload": {"new_status": "processing", "progress": 0}}
 {"timestamp": "2025-12-31T15:54:14Z", "session_id": "comp_test", "event": "session_completed", "payload": {"result_path": "/path/to/doc.md"}}
+{"timestamp": "2026-01-01T12:40:26Z", "session_id": "comp_test", "event": "status_changed", "payload": {"new_status": "processing", "progress": 0}}
+{"timestamp": "2026-01-01T12:40:26Z", "session_id": "comp_test", "event": "session_completed", "payload": {"result_path": "/path/to/doc.md"}}
+{"timestamp": "2026-01-01T12:41:50Z", "session_id": "comp_test", "event": "status_changed", "payload": {"new_status": "processing", "progress": 0}}
+{"timestamp": "2026-01-01T12:41:50Z", "session_id": "comp_test", "event": "session_completed", "payload": {"result_path": "/path/to/doc.md"}}
+{"timestamp": "2026-01-01T12:42:57Z", "session_id": "comp_test", "event": "status_changed", "payload": {"new_status": "processing", "progress": 0}}
+{"timestamp": "2026-01-01T12:42:57Z", "session_id": "comp_test", "event": "session_completed", "payload": {"result_path": "/path/to/doc.md"}}

@@ -1,7 +1,7 @@
 id: "audio_filter"
 name: "⚡ Audio Semantic Filter"
 description: "Analyzes audio to identify timestamps where technical content is discussed"
-model: "gemini-2.5-flash-lite"
+model: "gemini-1.5-flash"
 system_instruction: |
   You are a Technical Content Filter AI. Your job is to listen to meeting/video audio and identify timestamps where TECHNICAL content is discussed.
   

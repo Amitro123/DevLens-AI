@@ -57,8 +57,8 @@ class Settings(BaseSettings):
     hebrish_model: str = "ivrit-ai/faster-whisper-v2-d4"  # Hebrew Whisper model
     
     # Gemini Model Configuration
-    doc_model_pro_name: str = "gemini-2.5-flash-lite"  # High-quality model for documentation
-    doc_model_flash_name: str = "gemini-2.5-flash-lite"  # Fast model for analysis
+    doc_model_pro_name: str = "gemini-1.5-pro"  # High-quality model for documentation
+    doc_model_flash_name: str = "gemini-1.5-flash"  # Fast model for analysis
     
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,0 +1,6 @@
+{"timestamp": "2026-01-01T12:41:45Z", "session_id": "c54ab42d-8bca-433a-8ee4-48611bb8f8ad", "event": "status_changed", "payload": {"new_status": "processing", "progress": 0}}
+{"timestamp": "2026-01-01T12:41:45Z", "session_id": "c54ab42d-8bca-433a-8ee4-48611bb8f8ad", "event": "status_changed", "payload": {"new_status": "agent_processing", "mode": "general_doc"}}
+{"timestamp": "2026-01-01T12:41:45Z", "session_id": "c54ab42d-8bca-433a-8ee4-48611bb8f8ad", "event": "video_uploaded", "payload": {"filename": "video.mp4", "duration_sec": 120.0}}
+{"timestamp": "2026-01-01T12:41:45Z", "session_id": "c54ab42d-8bca-433a-8ee4-48611bb8f8ad", "event": "frames_sampled", "payload": {"count": 2, "mode": "smart"}}
+{"timestamp": "2026-01-01T12:41:45Z", "session_id": "c54ab42d-8bca-433a-8ee4-48611bb8f8ad", "event": "doc_generation_started", "payload": {"frame_count": 2, "project_name": "Bug Bash: Login Errors"}}
+{"timestamp": "2026-01-01T12:41:45Z", "session_id": "c54ab42d-8bca-433a-8ee4-48611bb8f8ad", "event": "doc_generation_completed", "payload": {"doc_length": 10}}
