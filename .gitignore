@@ -72,5 +72,6 @@ verify_imports.py
 # Session timeline data
 backend/data/timelines/*.jsonl
 backend/data/history.json
+data/timelines/
 frontend-backup/
 backend/demo_audio.wav
