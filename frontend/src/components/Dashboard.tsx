@@ -35,14 +35,29 @@ export const Dashboard = () => {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Poll for status when processing
+  // Poll for status when processing (with timeout and retry limits)
   useEffect(() => {
     if (!currentTaskId || !isProcessing) return;
 
+    const MAX_RETRIES = 5;
+    const MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+    let retryCount = 0;
+    const startTime = Date.now();
+
     const pollStatus = async () => {
+      // Check timeout
+      if (Date.now() - startTime > MAX_DURATION_MS) {
+        setError("Processing timed out. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
+
       try {
         const response = await api.getStatus(currentTaskId);
         const { status, progress: serverProgress, stage: serverStage } = response.data;
+
+        // Reset retry count on success
+        retryCount = 0;
 
         setProgress(serverProgress);
         if (serverStage) setStage(serverStage);
@@ -71,7 +86,12 @@ export const Dashboard = () => {
         }
       } catch (err: any) {
         console.error("Status poll error:", err);
-        // Don't stop on polling errors, might be temporary
+        retryCount++;
+        if (retryCount >= MAX_RETRIES) {
+          setError("Unable to reach server. Please check your connection and try again.");
+          setIsProcessing(false);
+          return;
+        }
       }
     };
 
@@ -85,9 +105,18 @@ export const Dashboard = () => {
       try {
         const response = await api.getActiveSession();
         if (response.data) {
-          setCurrentTaskId(response.data.session_id);
+          const { session_id, progress: sessionProgress, stage: sessionStage } = response.data;
+          setCurrentTaskId(session_id);
           setIsProcessing(true);
-          setProgress(response.data.progress);
+          setProgress(sessionProgress);
+          if (sessionStage) setStage(sessionStage);
+
+          // Derive processing step from progress to avoid UI flash
+          if (sessionProgress < 20) setProcessingStep("upload");
+          else if (sessionProgress < 40) setProcessingStep("transcribe");
+          else if (sessionProgress < 70) setProcessingStep("analyze");
+          else if (sessionProgress < 100) setProcessingStep("generate");
+          else setProcessingStep("complete");
         }
       } catch (err) {
         // No active session, that's fine

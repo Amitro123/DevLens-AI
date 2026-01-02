@@ -54,7 +54,14 @@ export const ProgressBar = ({ progress, stage, isComplete = false }: ProgressBar
             </div>
 
             {/* Progress Bar Track */}
-            <div className="w-full h-3 bg-secondary rounded-full overflow-hidden border border-border">
+            <div
+                className="w-full h-3 bg-secondary rounded-full overflow-hidden border border-border"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={clampedProgress}
+                aria-label={isComplete ? "Processing complete" : `Processing: ${clampedProgress}% complete`}
+            >
                 <motion.div
                     className={cn(
                         "h-full rounded-full",

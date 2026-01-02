@@ -7,6 +7,7 @@ for transcribing Israeli dev meeting recordings.
 
 import time
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 
@@ -185,19 +186,24 @@ class HebrishSTTService:
         }
 
 
-# Singleton instance
+# Singleton instance with thread-safe initialization
 _hebrish_stt_service: Optional[HebrishSTTService] = None
+_hebrish_stt_lock = threading.Lock()
 
 
 def get_hebrish_stt_service() -> HebrishSTTService:
-    """Get or create the HebrishSTTService singleton"""
+    """Get or create the HebrishSTTService singleton (thread-safe)"""
     global _hebrish_stt_service
     if _hebrish_stt_service is None:
-        _hebrish_stt_service = HebrishSTTService()
+        with _hebrish_stt_lock:
+            # Double-check after acquiring lock
+            if _hebrish_stt_service is None:
+                _hebrish_stt_service = HebrishSTTService()
     return _hebrish_stt_service
 
 
 def reset_hebrish_stt_service() -> None:
     """Reset the singleton (for testing)"""
     global _hebrish_stt_service
-    _hebrish_stt_service = None
+    with _hebrish_stt_lock:
+        _hebrish_stt_service = None

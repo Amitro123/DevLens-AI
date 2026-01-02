@@ -22,6 +22,8 @@ const formatTime = (seconds: number): string => {
 export const SessionDetails = ({ session, onClose }: SessionDetailsProps) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+    const [copyError, setCopyError] = useState<string | null>(null);
+    const [videoError, setVideoError] = useState<string | null>(null);
 
     const handleSeek = (seconds: number) => {
         if (videoRef.current) {
@@ -46,6 +48,8 @@ export const SessionDetails = ({ session, onClose }: SessionDetailsProps) => {
             setTimeout(() => setCopiedIdx(null), 2000);
         } catch (err) {
             console.error("Failed to copy:", err);
+            setCopyError("Failed to copy to clipboard");
+            setTimeout(() => setCopyError(null), 3000);
         }
     };
 
@@ -76,13 +80,31 @@ export const SessionDetails = ({ session, onClose }: SessionDetailsProps) => {
                     <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
                         <Play className="w-5 h-5" /> Video
                     </h3>
-                    <video
-                        ref={videoRef}
-                        src={session.video_url}
-                        controls
-                        className="w-full rounded-lg bg-black"
-                        onLoadedMetadata={() => console.log("Video ready")}
-                    />
+                    {videoError ? (
+                        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-center">
+                            <p className="text-destructive mb-2">{videoError}</p>
+                            <a
+                                href={session.video_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary hover:underline"
+                            >
+                                Try opening video directly →
+                            </a>
+                        </div>
+                    ) : (
+                        <video
+                            ref={videoRef}
+                            src={session.video_url}
+                            controls
+                            className="w-full rounded-lg bg-black"
+                            onLoadedMetadata={() => setVideoError(null)}
+                            onError={(e) => {
+                                console.error("Video load error:", e, session.id);
+                                setVideoError("Failed to load video. The file may be unavailable or in an unsupported format.");
+                            }}
+                        />
+                    )}
                 </section>
             )}
 
@@ -145,6 +167,17 @@ export const SessionDetails = ({ session, onClose }: SessionDetailsProps) => {
                             >
                                 <Check className="w-4 h-4" />
                                 JSON copied! Ready for Postman 🚀
+                            </motion.div>
+                        )}
+                        {copyError && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="fixed bottom-6 right-6 bg-destructive text-destructive-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-2"
+                            >
+                                <X className="w-4 h-4" />
+                                {copyError}
                             </motion.div>
                         )}
                     </AnimatePresence>

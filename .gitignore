@@ -73,5 +73,6 @@ verify_imports.py
 backend/data/timelines/*.jsonl
 backend/data/history.json
 data/timelines/
+data/history.json
 frontend-backup/
 backend/demo_audio.wav

@@ -60,6 +60,7 @@ export interface ActiveSession {
     title: string;
     mode?: string;
     progress: number;
+    stage?: string;  // Current processing stage label
 }
 
 // API Client - connected to real backend
