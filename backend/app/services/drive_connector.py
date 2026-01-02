@@ -1,5 +1,5 @@
 """
-Google Drive integration service for DocuFlow AI
+Google Drive integration service for DevLens AI
 """
 
 import re

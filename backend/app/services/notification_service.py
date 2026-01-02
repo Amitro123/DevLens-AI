@@ -29,7 +29,7 @@ class NotificationService:
         Returns:
             True if notification was sent successfully
         """
-        message = f"📧 EMAIL TO {email}: Don't forget to record '{meeting_title}' for DocuFlow!"
+        message = f"📧 EMAIL TO {email}: Don't forget to record '{meeting_title}' for DevLens!"
         print(message)
         logger.info(f"Sent pre-meeting reminder to {email} for '{meeting_title}'")
         return True

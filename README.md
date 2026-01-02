@@ -18,7 +18,7 @@ In modern engineering, knowledge is often lost in video calls. DevLens acts as a
 * **🎤 Audio Analysis with Gemini Flash** - Fast audio content analysis to identify technical segments
 * **🔔 Smart Notification Scheduler** - Pre-meeting reminders and post-meeting upload nudges
 * **🎯 Dynamic Prompt Registry** - Configure AI personas via YAML files, not hardcoded prompts
-* **🔄 Async Processing** - Background workers for long videos (Celery + Redis)
+* **💾 Redis Session Caching** - Fast session state and timeline storage with Redis
 * **🔗 Export Integrations** - Send to Notion, create Jira tickets, copy to clipboard
 * **🏢 Multi-Department Support** - Specialized personas for R&D, HR, and Finance teams
 * **📜 Persistent Documentation** - Automated local storage of generated reports for later retrieval
@@ -132,8 +132,7 @@ For longer videos (2+ minutes), the pipeline can process video in **30-second se
 - **Frontend**: React 18, TypeScript, Vite, TailwindCSS, Framer Motion
 - **Backend**: FastAPI, Python 3.12
 - **AI/ML**: Google Gemini Pro 1.5, FFmpeg
-- **Storage**: Local filesystem (JSON/Markdown)
-- Celery + Redis (async workers)
+- **Storage**: Local filesystem (JSON/Markdown), Redis (session cache)
 
 **Frontend:** *(New Lovable-generated UI v2.0)*
 - React 18 + **TypeScript**
@@ -439,7 +438,8 @@ DevLens-AI/
 - [x] Developer Mode with Telemetry
 - [x] Feedback Loop (Rate docs)
 - [x] Export to Notion/Jira (Mock)
-- [x] Async processing with Celery workers
+- [x] Redis session caching and timeline storage
+- [ ] Async processing with Celery workers (Planned Q2 2026)
 - [x] Active Session Recovery (Auto-re-attach to pending jobs)
 - [x] Refactored shared video processing pipeline
 - [x] Dual-Stream Pipeline Optimization (Speed & Quality)

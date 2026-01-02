@@ -5,9 +5,8 @@ python-multipart==0.0.6
 starlette==0.35.1
 httpx==0.27.0
 
-# Async Task Queue
-celery[redis]==5.3.4
-# Note: redis client installed automatically by celery[redis]
+# Redis for session caching and timeline storage
+redis==5.0.1
 
 # AI & ML
 google-generativeai==0.8.3

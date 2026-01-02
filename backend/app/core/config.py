@@ -27,9 +27,6 @@ class Settings(BaseSettings):
     # Google Gemini API
     gemini_api_key: str
     
-    # Groq STT API
-    groq_api_key: str = ""  # Optional, fallback to Gemini if empty
-    
     # Application Settings
     upload_dir: str = "./uploads"
     frame_interval: int = 5  # Extract 1 frame every N seconds

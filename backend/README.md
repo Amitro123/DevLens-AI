@@ -1,6 +1,6 @@
-# DocuFlow AI Backend
+# DevLens AI Backend
 
-FastAPI-based backend for DocuFlow AI with dynamic prompt registry system.
+FastAPI-based backend for DevLens AI with dynamic prompt registry system.
 
 ## Features
 

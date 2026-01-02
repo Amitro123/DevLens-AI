@@ -558,7 +558,7 @@ pydantic==2.5.0
 - Calendar API authentication and token refresh
 
 ### Scaling
-- Async processing with Celery for long videos
-- Redis for session state management
+- Redis for session state management (actively used)
+- Async processing with Celery for long videos (planned Q2 2026)
 - S3/Cloud Storage for video and audio files
 - CDN for frontend static files

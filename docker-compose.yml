@@ -4,13 +4,13 @@
 # NOTE: The DevLens app works without Docker!
 # Run `.\start_devlens.ps1` to start in local mode without containers.
 # These services are optional and provide additional features:
-# - Redis: Async task queue (future Celery workers)
+# - Redis: Session caching and timeline storage (actively used)
 # - PostgreSQL: Persistent storage (future)
 # - Acontext: Observability dashboard (when images are available)
 
 services:
   # ============================================================================
-  # Redis - Optional: For async task queue (future Celery workers)
+  # Redis - For session caching and timeline storage (data/timelines/*.jsonl)
   # ============================================================================
   redis:
     image: redis:7-alpine

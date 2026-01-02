@@ -65,8 +65,9 @@ This document outlines the planned features and development priorities for DevLe
   - Session JSON + docs as "experience corpus"
 - [ ] **Self-Improving Memory Loop**
   - Learn from past sessions and refine prompts
-- [ ] **Full Async Processing**
-  - Celery + Redis background worker queue
+- [ ] **Full Async Processing with Celery**
+  - Background worker queue for long videos
+  - Celery + Redis task distribution
 - [ ] **Expanded Integrations**
   - Slack (push summaries + links)
   - Confluence / GitHub Wikis
