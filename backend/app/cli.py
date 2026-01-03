@@ -137,7 +137,7 @@ def test_hebrish_stt(
 
 
 @app.command()
-def stt_health():
+def stt_health() -> None:
     """Check STT service health status."""
     from app.services.stt_fast_service import get_fast_stt_service
     from app.services.stt_hebrish_service import get_hebrish_stt_service

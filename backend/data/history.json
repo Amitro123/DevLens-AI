@@ -1,6 +1,51 @@
 {
   "sessions": [
     {
+      "id": "test_storage_206fa9c4",
+      "timestamp": "2026-01-03T20:44:21.626627",
+      "title": "Test Session",
+      "topic": "General",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": "General Documentation"
+    },
+    {
+      "id": "test_fail_1e2b127a",
+      "timestamp": "2026-01-03T20:44:20.703741",
+      "title": "Fail Test",
+      "topic": "General",
+      "status": "failed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_complete_f75537a8",
+      "timestamp": "2026-01-03T20:44:20.482193",
+      "title": "Complete Test",
+      "topic": "General",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_cancel_0e642388",
+      "timestamp": "2026-01-03T20:44:20.332839",
+      "title": "Cancel Test",
+      "topic": "General",
+      "status": "cancelled",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_progress_b5380ab3",
+      "timestamp": "2026-01-03T20:44:20.221720",
+      "title": "Progress Test",
+      "topic": "General",
+      "status": "processing",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
       "id": "test_storage_d9f342b2",
       "timestamp": "2026-01-03T20:39:45.358965",
       "title": "Test Session",

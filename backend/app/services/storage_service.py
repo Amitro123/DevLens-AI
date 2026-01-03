@@ -124,6 +124,27 @@ class StorageService:
             
         return None
 
+    def _parse_frame_timestamp(self, filename: str) -> Optional[float]:
+        """Parse timestamp from frame filename.
+        
+        Supports two formats:
+        - frame_0000_t1.0s.jpg (explicit timestamp)
+        - frame_0012.jpg (legacy, 5s intervals)
+        """
+        if "_t" in filename and "s.jpg" in filename:
+            try:
+                t_part = filename.split("_t")[1].split("s.jpg")[0]
+                return float(t_part)
+            except (IndexError, ValueError):
+                return None
+        elif filename.startswith("frame_") and filename.endswith(".jpg"):
+            try:
+                idx_part = filename.split("frame_")[1].split(".jpg")[0]
+                return float(int(idx_part) * 5.0)
+            except (IndexError, ValueError):
+                return None
+        return None
+
     def list_session_frames(self, session_id: str) -> List[Dict]:
         """
         List all extracted frames for a session with their timestamps.
@@ -138,36 +159,20 @@ class StorageService:
                 
             frames = []
             frame_index = 0
+            
             for img_path in frames_dir.glob("*.jpg"):
-                # Parse timestamp from filename
-                # Format 1: frame_0000_t1.0s.jpg (explicit timestamp)
-                # Format 2: frame_0012.jpg (legacy, assume 5s interval)
-                name = img_path.name
-                timestamp = 0.0
-                
-                if "_t" in name and "s.jpg" in name:
-                    # Extract between 't' and 's.jpg'
-                    try:
-                        t_part = name.split("_t")[1].split("s.jpg")[0]
-                        timestamp = float(t_part)
-                    except:
-                        continue
-                elif name.startswith("frame_") and name.endswith(".jpg"):
-                    try:
-                        # Legacy: frame index * 5
-                        idx_part = name.split("frame_")[1].split(".jpg")[0]
-                        timestamp = int(idx_part) * 5.0
-                    except:
-                        continue
+                timestamp = self._parse_frame_timestamp(img_path.name)
+                if timestamp is None:
+                    continue
                 
                 frames.append({
                     "timestamp_sec": timestamp,
-                    "thumbnail_url": f"/uploads/{session_id}/frames/{name}",
+                    "thumbnail_url": f"/uploads/{session_id}/frames/{img_path.name}",
                     "label": f"{int(timestamp//60)}:{int(timestamp%60):02d}",
                     "frame_index": frame_index
                 })
                 frame_index += 1
-                
+            
             # Sort by timestamp
             frames.sort(key=lambda x: x["timestamp_sec"])
             
