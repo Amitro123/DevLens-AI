@@ -213,6 +213,48 @@ class StorageService:
             })
         return sessions
 
+    def _get_session_metadata(self, session_id: str) -> Optional[Dict]:
+        """Helper to get basic session metadata from history."""
+        history = self._load_history()
+        return next((s for s in history["sessions"] if s["id"] == session_id), None)
+
+    def _get_session_documentation(self, session_id: str) -> str:
+        """Helper to retrieve session documentation from disk."""
+        upload_path = settings.get_upload_path()
+        # Try both "documentation.md" (our current) and "doc.md" (user's suggested)
+        doc_file = upload_path / session_id / "documentation.md"
+        if not doc_file.exists():
+            doc_file = upload_path / session_id / "doc.md"
+            
+        if doc_file.exists():
+            try:
+                with open(doc_file, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except Exception as e:
+                logger.warning(f"Failed to read documentation for {session_id}: {e}")
+        return ""
+
+    def _get_session_segments(self, session_id: str) -> List[Dict]:
+        """Helper to load STT segments for timeline."""
+        segments = []
+        upload_path = settings.get_upload_path()
+        segments_file = upload_path / session_id / "segments.json"
+        
+        if segments_file.exists():
+            try:
+                with open(segments_file, 'r', encoding='utf-8') as f:
+                    raw_segments = json.load(f)
+                    # Normalize to expected format
+                    for seg in raw_segments:
+                        segments.append({
+                            "start_sec": seg.get("start", seg.get("start_sec", 0)),
+                            "end_sec": seg.get("end", seg.get("end_sec", 0)),
+                            "text": seg.get("text", "")
+                        })
+            except Exception as e:
+                logger.warning(f"Failed to load segments for {session_id}: {e}")
+        return segments
+
     def get_session_details(self, session_id: str) -> Optional[Dict]:
         """
         Build a comprehensive dictionary of session details for the UI.
@@ -220,23 +262,12 @@ class StorageService:
         """
         try:
             # 1. Get metadata
-            history = self._load_history()
-            session_meta = next((s for s in history["sessions"] if s["id"] == session_id), None)
-            
+            session_meta = self._get_session_metadata(session_id)
             if not session_meta:
                 return None
             
             # 2. Get documentation
-            doc_markdown = ""
-            upload_path = settings.get_upload_path()
-            # Try both "documentation.md" (our current) and "doc.md" (user's suggested)
-            doc_file = upload_path / session_id / "documentation.md"
-            if not doc_file.exists():
-                doc_file = upload_path / session_id / "doc.md"
-                
-            if doc_file.exists():
-                with open(doc_file, 'r', encoding='utf-8') as f:
-                    doc_markdown = f.read()
+            doc_markdown = self._get_session_documentation(session_id)
             
             # 3. Get frames (limit to 12 key moments)
             all_frames = self.list_session_frames(session_id)
@@ -250,21 +281,7 @@ class StorageService:
                 key_frames = all_frames
                 
             # 4. Load segments (transcription timeline) if available
-            segments = []
-            segments_file = upload_path / session_id / "segments.json"
-            if segments_file.exists():
-                try:
-                    with open(segments_file, 'r', encoding='utf-8') as f:
-                        raw_segments = json.load(f)
-                        # Normalize to expected format
-                        for seg in raw_segments:
-                            segments.append({
-                                "start_sec": seg.get("start", seg.get("start_sec", 0)),
-                                "end_sec": seg.get("end", seg.get("end_sec", 0)),
-                                "text": seg.get("text", "")
-                            })
-                except Exception as e:
-                    logger.warning(f"Failed to load segments for {session_id}: {e}")
+            segments = self._get_session_segments(session_id)
                 
             # 5. Derive final status from actual state
             # If we have documentation, the session completed successfully regardless of stored status
