@@ -1,6 +1,15 @@
 {
   "sessions": [
     {
+      "id": "9ebbea69-2931-4452-9d4e-9871e6844711",
+      "timestamp": "2026-01-03T14:19:44.942627",
+      "title": "Untitled Project",
+      "topic": "General",
+      "status": "processing",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
       "id": "test_fail_7aea582e",
       "timestamp": "2026-01-03T14:14:56.899193",
       "title": "Fail Test",
