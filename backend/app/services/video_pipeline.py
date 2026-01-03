@@ -136,6 +136,33 @@ async def process_video_pipeline(
             proxy_path,
             context_keywords=context_keywords
         )
+        
+        # Save STT segments if available (for transcript timeline in frontend)
+        # The analyze_video_relevance may use Fast STT internally
+        # We need to extract and save those segments
+        try:
+            from app.services.stt_fast_service import get_fast_stt_service
+            from app.services.segment_helper import save_segments_to_file
+            from app.services.video_processor import extract_audio
+            
+            # Extract audio for STT if not already done
+            audio_path = task_dir / "audio.wav"
+            if not audio_path.exists():
+                audio_path_str = await run_in_threadpool(extract_audio, str(video_path), str(task_dir))
+                audio_path = Path(audio_path_str)
+            
+            # Get STT segments
+            stt_service = get_fast_stt_service()
+            if stt_service.is_available:
+                stt_result = stt_service.transcribe_video(str(audio_path))
+                if stt_result.segments:
+                    # Save segments to segments.json for frontend
+                    save_segments_to_file(task_id, stt_result.segments, settings.get_upload_path())
+                    logger.info(f"Saved {len(stt_result.segments)} STT segments for session {task_id}")
+        except Exception as e:
+            logger.warning(f"Failed to save STT segments: {e}")
+            # Non-critical, continue processing
+        
     except Exception as e:
         logger.warning(f"Semantic analysis failed, falling back to regular sampling: {e}")
         relevant_segments = None
