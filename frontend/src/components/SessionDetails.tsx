@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Play, Clock, FileText, Clipboard, Check } from "lucide-react";
+import { X, Play, Clock, FileText, Clipboard, Check, MessageSquare, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type Session } from "@/api";
 import { ExportOptions } from "./ExportOptions";
 import ReactMarkdown from "react-markdown";
