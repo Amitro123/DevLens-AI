@@ -156,9 +156,18 @@ async def process_video_pipeline(
             if stt_service.is_available:
                 stt_result = stt_service.transcribe_video(str(audio_path))
                 if stt_result.segments:
-                    # Save segments to segments.json for frontend
-                    save_segments_to_file(task_id, stt_result.segments, settings.get_upload_path())
-                    logger.info(f"Saved {len(stt_result.segments)} STT segments for session {task_id}")
+                    # Post-process Hebrish segments for better accuracy
+                    try:
+                        from app.services.stt_postprocess import fix_hebrish_segments
+                        corrected_segments = fix_hebrish_segments(stt_result.segments)
+                        logger.info("Applied Hebrish post-processing for accuracy boost")
+                    except Exception as e:
+                        logger.warning(f"Hebrish post-processing failed, using raw segments: {e}")
+                        corrected_segments = stt_result.segments
+                    
+                    # Save corrected segments to segments.json
+                    save_segments_to_file(task_id, corrected_segments, settings.get_upload_path())
+                    logger.info(f"Saved {len(corrected_segments)} STT segments for session {task_id}")
         except Exception as e:
             logger.warning(f"Failed to save STT segments: {e}")
             # Non-critical, continue processing

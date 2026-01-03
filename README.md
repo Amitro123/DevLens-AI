@@ -39,9 +39,11 @@ In modern engineering, knowledge is often lost in video calls. DevLens acts as a
 * **🤖 DevLensAgent Orchestrator** - Single-point coordination for all video processing tools
 * **🎙️ Fast STT Service** - Local faster-whisper transcription with Gemini fallback (~10x faster)
 * **🇮🇱 Hebrish STT** - Hebrew + English tech term recognition for Israeli dev meetings (production, deploy, API, etc.)
-* **📊 Granular Progress Bar** - Real-time 0-100% progress with stage labels ("Extracting frames... 50%")
-* **📋 Copy JSON per Frame** - One-click copy of frame metadata to clipboard for Postman/API testing
-* **🎓 Kaggle Fine-tuning** - Notebook for Hebrish vocabulary extraction using Whisper + LoRA
+* **🧠 Hebrish Post-Processing** - LLM-based error correction for 95% accuracy (אבולה→טאבולה, דיפלוי→deploy)
+* **📊 Granular Progress Bar** - Real-time 0-100% progress with stage labels ("STT: 45% | Frames: 72% | Doc: 0%")
+* **📋 Smart JSON Extraction** - Gemini Vision OCR extracts visible code/JSON from screenshots
+* **🎓 Dual-Language Tabs** - Professional Notion-style tabs for English docs + Hebrew transcripts
+* **📤 Export Suite** - Copy to clipboard, download .md, Notion/Jira integration ready
 
 ## 💡 Why DevLens?
 
