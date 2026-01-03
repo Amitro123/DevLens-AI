@@ -1,6 +1,51 @@
 {
   "sessions": [
     {
+      "id": "test_fail_7aea582e",
+      "timestamp": "2026-01-03T14:14:56.899193",
+      "title": "Fail Test",
+      "topic": "General",
+      "status": "failed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_complete_4801d293",
+      "timestamp": "2026-01-03T14:14:56.821510",
+      "title": "Complete Test",
+      "topic": "General",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_cancel_6d6b0097",
+      "timestamp": "2026-01-03T14:14:56.763717",
+      "title": "Cancel Test",
+      "topic": "General",
+      "status": "cancelled",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_progress_7e566e0c",
+      "timestamp": "2026-01-03T14:14:56.683146",
+      "title": "Progress Test",
+      "topic": "General",
+      "status": "processing",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_progress_4ab3d0db",
+      "timestamp": "2026-01-03T14:14:56.637327",
+      "title": "Progress Test",
+      "topic": "General",
+      "status": "failed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
       "id": "test_storage_7c05605d",
       "timestamp": "2026-01-03T13:57:10.309798",
       "title": "Test Session",
@@ -33,15 +78,6 @@
       "title": "Cancel Test",
       "topic": "General",
       "status": "cancelled",
-      "mode": "general_doc",
-      "mode_name": null
-    },
-    {
-      "id": "test_progress_4ab3d0db",
-      "timestamp": "2026-01-03T13:57:10.098192",
-      "title": "Progress Test",
-      "topic": "General",
-      "status": "processing",
       "mode": "general_doc",
       "mode_name": null
     },
