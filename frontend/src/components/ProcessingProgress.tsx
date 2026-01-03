@@ -55,9 +55,14 @@ interface ProcessingProgressProps {
   currentStep: ProcessingStep;
   progress?: number;
   stage?: string;  // Backend stage label (e.g., "Extracting key frames...")
+  stageProgress?: {  // Detailed progress per stage
+    stt?: number;
+    frames?: number;
+    doc?: number;
+  };
 }
 
-export const ProcessingProgress = ({ currentStep, progress = 0, stage = "" }: ProcessingProgressProps) => {
+export const ProcessingProgress = ({ currentStep, progress = 0, stage = "", stageProgress }: ProcessingProgressProps) => {
   const currentIndex = steps.findIndex(s => s.id === currentStep);
 
   return (
@@ -76,6 +81,33 @@ export const ProcessingProgress = ({ currentStep, progress = 0, stage = "" }: Pr
         <div className="mb-4 text-sm text-muted-foreground flex items-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
           <span>{stage}</span>
+        </div>
+      )}
+
+      {/* Stage-Specific Progress Breakdown */}
+      {stageProgress && (stageProgress.stt > 0 || stageProgress.frames > 0 || stageProgress.doc > 0) && (
+        <div className="mb-4 flex items-center gap-4 text-xs">
+          {stageProgress.stt !== undefined && stageProgress.stt > 0 && (
+            <div className="flex items-center gap-1">
+              <Mic className="w-3 h-3 text-primary" />
+              <span className="text-muted-foreground">STT:</span>
+              <span className="font-semibold text-primary">{stageProgress.stt}%</span>
+            </div>
+          )}
+          {stageProgress.frames !== undefined && stageProgress.frames > 0 && (
+            <div className="flex items-center gap-1">
+              <Video className="w-3 h-3 text-primary" />
+              <span className="text-muted-foreground">Frames:</span>
+              <span className="font-semibold text-primary">{stageProgress.frames}%</span>
+            </div>
+          )}
+          {stageProgress.doc !== undefined && stageProgress.doc > 0 && (
+            <div className="flex items-center gap-1">
+              <FileText className="w-3 h-3 text-primary" />
+              <span className="text-muted-foreground">Doc:</span>
+              <span className="font-semibold text-primary">{stageProgress.doc}%</span>
+            </div>
+          )}
         </div>
       )}
 

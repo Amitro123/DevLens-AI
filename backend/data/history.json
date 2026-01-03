@@ -1,6 +1,51 @@
 {
   "sessions": [
     {
+      "id": "test_storage_7c05605d",
+      "timestamp": "2026-01-03T13:57:10.309798",
+      "title": "Test Session",
+      "topic": "General",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": "General Documentation"
+    },
+    {
+      "id": "test_fail_d150631a",
+      "timestamp": "2026-01-03T13:57:10.269440",
+      "title": "Fail Test",
+      "topic": "General",
+      "status": "failed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_complete_c11cf3cc",
+      "timestamp": "2026-01-03T13:57:10.216372",
+      "title": "Complete Test",
+      "topic": "General",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_cancel_33f076e2",
+      "timestamp": "2026-01-03T13:57:10.158305",
+      "title": "Cancel Test",
+      "topic": "General",
+      "status": "cancelled",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_progress_4ab3d0db",
+      "timestamp": "2026-01-03T13:57:10.098192",
+      "title": "Progress Test",
+      "topic": "General",
+      "status": "processing",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
       "id": "e4dfe11a-8d2f-428b-b50b-f918d47d793d",
       "timestamp": "2026-01-03T13:42:24.173014",
       "title": "Untitled Project",
