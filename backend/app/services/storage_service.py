@@ -137,6 +137,7 @@ class StorageService:
                 return []
                 
             frames = []
+            frame_index = 0
             for img_path in frames_dir.glob("*.jpg"):
                 # Parse timestamp from filename
                 # Format 1: frame_0000_t1.0s.jpg (explicit timestamp)
@@ -162,11 +163,29 @@ class StorageService:
                 frames.append({
                     "timestamp_sec": timestamp,
                     "thumbnail_url": f"/uploads/{session_id}/frames/{name}",
-                    "label": f"{int(timestamp//60)}:{int(timestamp%60):02d}"
+                    "label": f"{int(timestamp//60)}:{int(timestamp%60):02d}",
+                    "frame_index": frame_index
                 })
+                frame_index += 1
                 
             # Sort by timestamp
             frames.sort(key=lambda x: x["timestamp_sec"])
+            
+            # Load extracted JSON data if available
+            frame_data_file = upload_path / session_id / "frame_data.json"
+            if frame_data_file.exists():
+                try:
+                    with open(frame_data_file, 'r', encoding='utf-8') as f:
+                        frame_data = json.load(f)
+                    
+                    # Attach json_data to frames
+                    for frame in frames:
+                        idx_str = str(frame["frame_index"])
+                        if idx_str in frame_data:
+                            frame["json_data"] = frame_data[idx_str]
+                except Exception as e:
+                    logger.warning(f"Failed to load frame_data.json: {e}")
+            
             return frames
             
         except Exception as e:

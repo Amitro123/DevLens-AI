@@ -2,12 +2,12 @@
   "sessions": [
     {
       "id": "9ebbea69-2931-4452-9d4e-9871e6844711",
-      "timestamp": "2026-01-03T14:19:44.942627",
+      "timestamp": "2026-01-03T14:22:43.066627",
       "title": "Untitled Project",
-      "topic": "General",
-      "status": "processing",
+      "topic": "Technical Documentation Writer",
+      "status": "completed",
       "mode": "general_doc",
-      "mode_name": null
+      "mode_name": "Technical Documentation Writer"
     },
     {
       "id": "test_fail_7aea582e",
