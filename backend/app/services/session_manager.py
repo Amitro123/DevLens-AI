@@ -34,6 +34,7 @@ class SessionState(BaseModel):
     status: SessionStatus = SessionStatus.DRAFT
     progress: int = 0
     stage: str = ""
+    stage_progress: Dict[str, int] = {}  # Detailed progress: {"stt": 45, "frames": 72, "doc": 0}
     title: str = "Untitled"
     mode: Optional[str] = None
     mode_name: Optional[str] = None
@@ -147,6 +148,33 @@ class SessionManager:
         
         logger.debug(f"Session {session_id}: {stage} @ {progress}%")
     
+    def update_progress_detailed(
+        self, 
+        session_id: str, 
+        stage: str, 
+        progress: int,
+        stage_progress: Optional[Dict[str, int]] = None
+    ) -> None:
+        """
+        Update session progress with detailed stage-specific breakdown.
+        
+        Args:
+            session_id: Session to update
+            stage: Current processing stage label (e.g., "Transcribing audio...")
+            progress: Overall progress percentage (0-100)
+            stage_progress: Dict with per-stage progress: {"stt": 45, "frames": 72, "doc": 0}
+        """
+        state = self._get_or_create(session_id)
+        state.progress = max(0, min(100, progress))
+        state.stage = stage
+        
+        if stage_progress:
+            state.stage_progress = stage_progress
+        
+        state.last_updated = datetime.now()
+        
+        logger.debug(f"Session {session_id}: {stage} @ {progress}% | Stages: {stage_progress}")
+    
     def complete(self, session_id: str, result_path: Optional[str] = None, documentation: Optional[str] = None) -> None:
         """
         Mark a session as completed and store the result path.
@@ -248,6 +276,7 @@ class SessionManager:
                 "status": state.status.value,
                 "progress": state.progress,
                 "stage": state.stage,
+                "stage_progress": state.stage_progress,  # Add detailed progress
                 "title": state.title,
                 "mode": state.mode,
                 "mode_name": state.mode_name,

@@ -21,6 +21,7 @@ from app.services.video_pipeline import (
 from app.services.prompt_loader import get_prompt_loader, PromptLoadError
 from app.services.calendar_service import get_calendar_watcher, CalendarWatcher
 from app.core.observability import record_event, EventType
+from app.services.progress_helper import create_detailed_progress_callback
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +162,14 @@ class DevLensAgent:
                 except Exception as e:
                     logger.warning(f"[Agent] Failed to get calendar context: {e}")
             
-            # 3. Run video pipeline
+            # 3. Create detailed progress callback
+            detailed_callback = await create_detailed_progress_callback(
+                self.session_manager,
+                session_id,
+                progress_callback
+            )
+            
+            # 4. Run video pipeline
             if options.use_segmented_pipeline:
                 logger.info(f"[Agent] Using segmented pipeline ({options.segment_duration_sec}s segments)")
                 result = await process_video_pipeline_segmented(
@@ -171,7 +179,7 @@ class DevLensAgent:
                     project_name=project_name,
                     segment_duration_sec=options.segment_duration_sec,
                     mode=options.mode,
-                    progress_callback=progress_callback
+                    progress_callback=detailed_callback
                 )
             else:
                 logger.info("[Agent] Using standard pipeline")
@@ -182,10 +190,10 @@ class DevLensAgent:
                     project_name=project_name,
                     context_keywords=context_keywords,
                     mode=options.mode,
-                    progress_callback=progress_callback
+                    progress_callback=detailed_callback
                 )
             
-            # 4. Return result
+            # 5. Return result
             logger.info(f"[Agent] Documentation generated for session {session_id}")
             
             return DevLensResult(

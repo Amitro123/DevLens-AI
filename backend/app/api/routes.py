@@ -50,6 +50,7 @@ class StatusResponse(BaseModel):
     status: str
     progress: int
     stage: str = ""  # Current processing stage label
+    stage_progress: Dict[str, int] = {}  # Detailed progress: {"stt": 45, "frames": 72, "doc": 0}
 
 
 class ResultResponse(BaseModel):
@@ -220,7 +221,8 @@ async def get_status(task_id: str):
         return StatusResponse(
             status=status_info["status"],
             progress=status_info["progress"],
-            stage=status_info.get("stage", "")
+            stage=status_info.get("stage", ""),
+            stage_progress=status_info.get("stage_progress", {})
         )
     
     # Fallback: Check calendar sessions for backwards compatibility

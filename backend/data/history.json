@@ -1,6 +1,24 @@
 {
   "sessions": [
     {
+      "id": "e4dfe11a-8d2f-428b-b50b-f918d47d793d",
+      "timestamp": "2026-01-03T13:42:24.173014",
+      "title": "Untitled Project",
+      "topic": "Technical Documentation Writer",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": "Technical Documentation Writer"
+    },
+    {
+      "id": "test_progress_00352e09",
+      "timestamp": "2026-01-03T13:35:09.149572",
+      "title": "Progress Test",
+      "topic": "General",
+      "status": "failed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
       "id": "test_storage_f6926e11",
       "timestamp": "2026-01-03T00:02:41.333988",
       "title": "Test Session",
@@ -33,15 +51,6 @@
       "title": "Cancel Test",
       "topic": "General",
       "status": "cancelled",
-      "mode": "general_doc",
-      "mode_name": null
-    },
-    {
-      "id": "test_progress_00352e09",
-      "timestamp": "2026-01-03T00:02:40.019836",
-      "title": "Progress Test",
-      "topic": "General",
-      "status": "processing",
       "mode": "general_doc",
       "mode_name": null
     },
