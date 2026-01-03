@@ -479,10 +479,12 @@ Return STRICTLY JSON:
         # Sort by index
         sorted_docs = sorted(segment_docs, key=lambda x: x.get("index", 0))
         
-        # Build merged document
-        merged = f"# {project_name} Documentation\n\n"
-        merged += f"*Generated from {len(sorted_docs)} video segments*\n\n"
-        merged += "---\n\n"
+        # Build merged document using list for efficiency
+        parts = [
+            f"# {project_name} Documentation\n\n",
+            f"*Generated from {len(sorted_docs)} video segments*\n\n",
+            "---\n\n"
+        ]
         
         for seg in sorted_docs:
             seg_index = seg.get("index", 0)
@@ -491,7 +493,7 @@ Return STRICTLY JSON:
             doc = seg.get("doc", "")
             
             # Add segment header
-            merged += f"## Part {seg_index + 1} ({seg_start:.0f}s - {seg_end:.0f}s)\n\n"
+            parts.append(f"## Part {seg_index + 1} ({seg_start:.0f}s - {seg_end:.0f}s)\n\n")
             
             # Add segment content (strip duplicate headers if any)
             content = doc.strip()
@@ -501,9 +503,10 @@ Return STRICTLY JSON:
                 lines = lines[1:]
             content = "\n".join(lines).strip()
             
-            merged += content + "\n\n"
-            merged += "---\n\n"
+            parts.append(content + "\n\n")
+            parts.append("---\n\n")
         
+        merged = "".join(parts)
         logger.info(f"Merged {len(sorted_docs)} segments into {len(merged)} character document")
         
         return merged
