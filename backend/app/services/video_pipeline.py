@@ -17,12 +17,18 @@ from app.services.video_processor import (
     get_video_duration,
     VideoProcessingError,
     split_into_segments,
-    extract_segment_frames
+    extract_segment_frames,
+    create_low_fps_proxy,
+    extract_audio
 )
-from app.services.ai_generator import get_generator, AIGenerationError
+from app.services.ai_generator import get_generator, AIGenerationError, AIGenerator
 from app.services.prompt_loader import PromptConfig
 from app.services.storage_service import get_storage_service
 from app.core.observability import get_acontext_client, extract_code_blocks, record_event, EventType
+from app.services.stt_fast_service import get_fast_stt_service
+from app.services.segment_helper import save_segments_to_file
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -113,68 +119,13 @@ async def process_video_pipeline(
         await progress_callback(10, "Analyzing video duration...")
 
     generator = get_generator()
-    relevant_segments = None
-    
-    try:
-        logger.info("Starting Dual-Stream Optimization: Creating Low-FPS Proxy...")
-        from app.services.video_processor import create_low_fps_proxy
-        
-        if progress_callback:
-            await progress_callback(20, "Creating optimized proxy...")
-
-        # 1 FPS Proxy for analysis
-        proxy_path = await run_in_threadpool(create_low_fps_proxy, str(video_path))
-        
-        if progress_callback:
-            await progress_callback(30, "Analyzing content relevance...")
-
-        logger.info("Starting Multimodal Semantic Analysis using Gemini Flash...")
-        # Use multimodal analysis on the proxy video instead of audio-only
-        # Wrapped in run_in_threadpool to prevent blocking the event loop (CR_FINDINGS 1.1)
-        relevant_segments = await run_in_threadpool(
-            generator.analyze_video_relevance,
-            proxy_path,
-            context_keywords=context_keywords
-        )
-        
-        # Save STT segments if available (for transcript timeline in frontend)
-        # The analyze_video_relevance may use Fast STT internally
-        # We need to extract and save those segments
-        try:
-            from app.services.stt_fast_service import get_fast_stt_service
-            from app.services.segment_helper import save_segments_to_file
-            from app.services.video_processor import extract_audio
-            
-            # Extract audio for STT if not already done
-            audio_path = task_dir / "audio.wav"
-            if not audio_path.exists():
-                audio_path_str = await run_in_threadpool(extract_audio, str(video_path), str(task_dir))
-                audio_path = Path(audio_path_str)
-            
-            # Get STT segments
-            stt_service = get_fast_stt_service()
-            if stt_service.is_available:
-                stt_result = stt_service.transcribe_video(str(audio_path))
-                if stt_result.segments:
-                    # Post-process Hebrish segments for better accuracy
-                    try:
-                        from app.services.stt_postprocess import fix_hebrish_segments
-                        corrected_segments = fix_hebrish_segments(stt_result.segments)
-                        logger.info("Applied Hebrish post-processing for accuracy boost")
-                    except Exception as e:
-                        logger.warning(f"Hebrish post-processing failed, using raw segments: {e}")
-                        corrected_segments = stt_result.segments
-                    
-                    # Save corrected segments to segments.json
-                    save_segments_to_file(task_id, corrected_segments, settings.get_upload_path())
-                    logger.info(f"Saved {len(corrected_segments)} STT segments for session {task_id}")
-        except Exception as e:
-            logger.warning(f"Failed to save STT segments: {e}")
-            # Non-critical, continue processing
-        
-    except Exception as e:
-        logger.warning(f"Semantic analysis failed, falling back to regular sampling: {e}")
-        relevant_segments = None
+    relevant_segments = await _perform_semantic_analysis(
+        video_path,
+        task_id,
+        context_keywords,
+        progress_callback,
+        generator
+    )
     
     # 4. Frame extraction (Smart Extraction from Original High-Qual Video)
     if progress_callback:
@@ -248,6 +199,87 @@ async def process_video_pipeline(
     
     # 6. Store artifacts in Acontext (Flight Recorder)
     _store_artifacts(task_id, documentation, project_name)
+    
+    # 7. Add to persistent history
+    storage = get_storage_service()
+    storage.add_session(task_id, {
+        "title": project_name,
+        "status": "completed",
+        "mode": mode or "general_doc",
+        "documentation": documentation
+    })
+    
+    return VideoPipelineResult(
+        task_id=task_id,
+        documentation=documentation,
+        project_name=project_name,
+        mode=mode
+    )
+
+
+async def _perform_semantic_analysis(
+    video_path: Path,
+    task_id: str,
+    context_keywords: Optional[List[str]],
+    progress_callback: Optional[Callable[[int, str], Awaitable[None]]],
+    generator: AIGenerator
+) -> Optional[List[Dict]]:
+    """Helper method to run Dual-Stream Optimization and STT."""
+    try:
+        logger.info("Starting Dual-Stream Optimization: Creating Low-FPS Proxy...")
+        
+        if progress_callback:
+            await progress_callback(20, "Creating optimized proxy...")
+
+        # 1 FPS Proxy for analysis
+        proxy_path = await run_in_threadpool(create_low_fps_proxy, str(video_path))
+        
+        if progress_callback:
+            await progress_callback(30, "Analyzing content relevance...")
+
+        logger.info("Starting Multimodal Semantic Analysis using Gemini Flash...")
+        # Use multimodal analysis on the proxy video instead of audio-only
+        relevant_segments = await run_in_threadpool(
+            generator.analyze_video_relevance,
+            proxy_path,
+            context_keywords=context_keywords
+        )
+        
+        # Determine audio path
+        task_dir = video_path.parent
+        audio_path = task_dir / "audio.wav"
+        
+        # Save STT segments if available
+        try:
+            # Extract audio for STT if not already done
+            if not audio_path.exists():
+                audio_path_str = await run_in_threadpool(extract_audio, str(video_path), str(task_dir))
+                audio_path = Path(audio_path_str)
+            
+            # Get STT segments
+            stt_service = get_fast_stt_service()
+            if stt_service.is_available:
+                stt_result = stt_service.transcribe_video(str(audio_path))
+                if stt_result.segments:
+                    # Post-process Hebrish segments
+                    try:
+                        from app.services.stt_postprocess import fix_hebrish_segments
+                        corrected_segments = fix_hebrish_segments(stt_result.segments)
+                    except Exception as e:
+                        logger.warning(f"Hebrish post-processing failed: {e}")
+                        corrected_segments = stt_result.segments
+                    
+                    # Save corrected segments
+                    save_segments_to_file(task_id, corrected_segments, settings.get_upload_path())
+                    logger.info(f"Saved {len(corrected_segments)} STT segments for session {task_id}")
+        except Exception as e:
+            logger.warning(f"Failed to save STT segments: {e}")
+
+        return relevant_segments
+        
+    except Exception as e:
+        logger.warning(f"Semantic analysis failed, falling back to regular sampling: {e}")
+        return None
     
     # 7. Persist to history
     storage = get_storage_service()
