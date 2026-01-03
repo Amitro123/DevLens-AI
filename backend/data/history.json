@@ -1,6 +1,60 @@
 {
   "sessions": [
     {
+      "id": "test_storage_10c3b512",
+      "timestamp": "2026-01-03T14:43:23.896741",
+      "title": "Test Session",
+      "topic": "General",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": "General Documentation"
+    },
+    {
+      "id": "test_fail_f215d7a8",
+      "timestamp": "2026-01-03T14:43:23.851340",
+      "title": "Fail Test",
+      "topic": "General",
+      "status": "failed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_complete_cce59b43",
+      "timestamp": "2026-01-03T14:43:23.792019",
+      "title": "Complete Test",
+      "topic": "General",
+      "status": "completed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_cancel_05662745",
+      "timestamp": "2026-01-03T14:43:23.747022",
+      "title": "Cancel Test",
+      "topic": "General",
+      "status": "cancelled",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_progress_339c784d",
+      "timestamp": "2026-01-03T14:43:23.689480",
+      "title": "Progress Test",
+      "topic": "General",
+      "status": "processing",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
+      "id": "test_progress_7e566e0c",
+      "timestamp": "2026-01-03T14:43:23.515259",
+      "title": "Progress Test",
+      "topic": "General",
+      "status": "failed",
+      "mode": "general_doc",
+      "mode_name": null
+    },
+    {
       "id": "9ebbea69-2931-4452-9d4e-9871e6844711",
       "timestamp": "2026-01-03T14:22:43.066627",
       "title": "Untitled Project",
@@ -33,15 +87,6 @@
       "title": "Cancel Test",
       "topic": "General",
       "status": "cancelled",
-      "mode": "general_doc",
-      "mode_name": null
-    },
-    {
-      "id": "test_progress_7e566e0c",
-      "timestamp": "2026-01-03T14:14:56.683146",
-      "title": "Progress Test",
-      "topic": "General",
-      "status": "processing",
       "mode": "general_doc",
       "mode_name": null
     },
