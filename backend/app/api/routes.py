@@ -77,7 +77,7 @@ class ActiveSessionResponse(BaseModel):
 
 
 @router.get("/active-session", response_model=Optional[ActiveSessionResponse])
-async def get_active_session():
+async def get_active_session() -> Optional[ActiveSessionResponse]:
     """
     Check for any active processing or uploading session.
     Delegates to centralized SessionManager.

@@ -426,6 +426,16 @@ DevLens-AI/
 └── README.md
 ```
 
+## 📊 Technical Health & Audit Status
+
+Following a deep audit using the `mcp-python-auditor v1.0.0`, the project has been baselined:
+
+- **Current Score:** `64.8 / 100` (🟠 Technical Debt Warning)
+- **Test Coverage:** `19%` (CRITICAL - Significant verify gap)
+- **Primary Issue:** Monolithic API layer and lack of model/schema separation.
+
+For a full breakdown of the findings and the recommended roadmap to production readiness, see [docs/audit_findings.md](docs/audit_findings.md).
+
 ## 🚀 Roadmap
 
 - [x] MVP: Synchronous video processing
